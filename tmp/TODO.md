@@ -31,9 +31,9 @@ base: main
 ## Group 1: 제출 및 상세 UI (병렬)
 > worktree: `tmp/worktrees/feature-issue-2-safe-webpage-capture-group-1`
 
-- [ ] 공개 Server Action 입력을 계속 불신 데이터로 검증하고 capture service를 await한 뒤 `/archives/{id}`로 redirect한다. rate/quota/과부하 거절은 예외 세부정보 없이 폼에 재시도 가능한 안전 문구로 반환하고, 생성된 Archive의 일반 캡처 실패는 상세 페이지에서 확인하도록 redirect한다 (`src/app/actions.ts`, `src/app/archive-form-state.ts`)
-- [ ] 최대 URL 길이를 브라우저 힌트에도 반영하고, 동기 요청 중 버튼/문구를 `캡처 중…`으로 표시하여 최대 10초 작업임을 명확히 하며 서버 오류를 기존 `aria-live` 영역에 유지한다 (`src/app/archive-form.tsx`)
-- [ ] 공개 상세 페이지에서 `pending/saved/failed`별 한국어 badge와 설명을 렌더링한다. saved에는 title, description, 최종 URL, 캡처 시각, 원문 byte 수를 표시하고 failed에는 저장된 안전 문구만 표시하며 로컬 원문 파일 경로/내부 오류는 노출하지 않는다 (`src/app/archives/[id]/page.tsx`)
+- [x] 공개 Server Action 입력을 계속 불신 데이터로 검증하고 capture service를 await한 뒤 `/archives/{id}`로 redirect한다. rate/quota/과부하 거절은 예외 세부정보 없이 폼에 재시도 가능한 안전 문구로 반환하고, 생성된 Archive의 일반 캡처 실패는 상세 페이지에서 확인하도록 redirect한다 (`src/app/actions.ts`, `src/app/archive-form-state.ts`)
+- [x] 최대 URL 길이를 브라우저 힌트에도 반영하고, 동기 요청 중 버튼/문구를 `캡처 중…`으로 표시하여 최대 10초 작업임을 명확히 하며 서버 오류를 기존 `aria-live` 영역에 유지한다 (`src/app/archive-form.tsx`)
+- [x] 공개 상세 페이지에서 `pending/saved/failed`별 한국어 badge와 설명을 렌더링한다. saved에는 title, description, 최종 URL, 캡처 시각, 원문 byte 수를 표시하고 failed에는 저장된 안전 문구만 표시하며 로컬 원문 파일 경로/내부 오류는 노출하지 않는다 (`src/app/archives/[id]/page.tsx`)
 
 ## Group 2: 자동화 및 운영 경계 (병렬)
 > worktree: `tmp/worktrees/feature-issue-2-safe-webpage-capture-group-2`
