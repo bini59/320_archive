@@ -84,7 +84,16 @@ describe("ArchiveService synchronous capture", () => {
     });
     expect(new Date(result.archive.snapshot!.capturedAt).toISOString()).toBe(result.archive.snapshot!.capturedAt);
     expect(await readFile(path.join(archiveRoot, result.archive.id, "original.html"))).toEqual(bytes);
+    const readable = await readFile(path.join(archiveRoot, result.archive.id, "readable.html"), "utf8");
+    expect(readable).toContain("exact original");
+    expect(await service.findContent(result.archive.id, "readable")).toMatchObject({ archive: { status: "saved" }, content: { kind: "readable" } });
     expect(JSON.parse(await readFile(path.join(archiveRoot, result.archive.id, "snapshot.json"), "utf8"))).toEqual(result.archive.snapshot);
+  });
+
+  it("does not expose content for pending or failed archives", async () => {
+    const { service } = await fixture({ capture: new StubCapture(new CaptureError("timeout")) });
+    const failed = await service.create("https://example.com/fail");
+    expect(await service.findContent(failed.archive.id, "original")).toBeNull();
   });
 
   it("stores only the allow-listed reason and cleans files when capture fails", async () => {
