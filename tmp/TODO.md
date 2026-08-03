@@ -29,11 +29,11 @@ base: main
 ## Group 1: 제출 및 상세 UI (병렬)
 > worktree: `tmp/worktrees/feature-issue-1-basic-archive-group-1`
 
-- [ ] `'use server'` 액션에서 FormData를 불신 입력으로 검증하고 예상 가능한 URL 오류는 action state로 반환한다. 영속화 성공 후 `redirect()`는 try/catch 밖에서 호출하여 신규·중복 모두 안정 URL로 이동시킨다 (`src/app/actions.ts`)
-- [ ] `useActionState` 기반 URL 입력 폼을 구현해 required/url 힌트, 서버 오류의 `aria-live` 표시, 제출 중 버튼 비활성화를 제공한다 (`src/app/archive-form.tsx`)
-- [ ] 기존 placeholder를 공개 제출 화면으로 교체하고 폼의 레이블·설명·오류 영역을 접근 가능하게 배치한다 (`src/app/page.tsx`)
-- [ ] Promise인 `params`에서 UUID를 읽고 `connection()` 이후 Archive를 조회해 원본 URL과 `pending` 상태, 생성 시각을 표시한다. 잘못된/없는 ID는 `notFound()`로 처리한다 (`src/app/archives/[id]/page.tsx`)
-- [ ] 존재하지 않는 Archive에 대한 명확한 404 화면과 홈 복귀 링크를 추가한다 (`src/app/archives/[id]/not-found.tsx`)
+- [x] `'use server'` 액션에서 FormData를 불신 입력으로 검증하고 예상 가능한 URL 오류는 action state로 반환한다. 영속화 성공 후 `redirect()`는 try/catch 밖에서 호출하여 신규·중복 모두 안정 URL로 이동시킨다 (`src/app/actions.ts`)
+- [x] `useActionState` 기반 URL 입력 폼을 구현해 required/url 힌트, 서버 오류의 `aria-live` 표시, 제출 중 버튼 비활성화를 제공한다 (`src/app/archive-form.tsx`)
+- [x] 기존 placeholder를 공개 제출 화면으로 교체하고 폼의 레이블·설명·오류 영역을 접근 가능하게 배치한다 (`src/app/page.tsx`)
+- [x] Promise인 `params`에서 UUID를 읽고 `connection()` 이후 Archive를 조회해 원본 URL과 `pending` 상태, 생성 시각을 표시한다. 잘못된/없는 ID는 `notFound()`로 처리한다 (`src/app/archives/[id]/page.tsx`)
+- [x] 존재하지 않는 Archive에 대한 명확한 404 화면과 홈 복귀 링크를 추가한다 (`src/app/archives/[id]/not-found.tsx`)
 
 ## Group 2: 자동화 및 운영 경계 (병렬)
 > worktree: `tmp/worktrees/feature-issue-1-basic-archive-group-2`
