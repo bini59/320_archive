@@ -3,12 +3,7 @@
 import { redirect } from "next/navigation";
 import { getArchiveService } from "@/lib/archive/service";
 import { ArchiveUrlError } from "@/lib/archive/url";
-
-export interface ArchiveFormState {
-  error: string | null;
-}
-
-export const initialArchiveFormState: ArchiveFormState = { error: null };
+import type { ArchiveFormState } from "./archive-form-state";
 
 export async function createArchiveAction(
   _previousState: ArchiveFormState,

@@ -3,8 +3,8 @@
 import { useActionState } from "react";
 import {
   createArchiveAction,
-  initialArchiveFormState,
 } from "./actions";
+import { initialArchiveFormState } from "./archive-form-state";
 
 export function ArchiveForm() {
   const [state, formAction, pending] = useActionState(
