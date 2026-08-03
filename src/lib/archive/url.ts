@@ -19,7 +19,10 @@ function isBlockedIpv4(address: string): boolean {
     a === 127 ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168)
+    (a === 192 && (b === 0 || b === 168)) ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
   );
 }
 
@@ -45,9 +48,10 @@ function isBlockedIpv6(address: string): boolean {
   const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1;
   const uniqueLocal = (parts[0] & 0xfe00) === 0xfc00;
   const linkLocal = (parts[0] & 0xffc0) === 0xfe80;
+  const multicast = (parts[0] & 0xff00) === 0xff00;
   const mappedIpv4 = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
   const mappedAddress = `${parts[6] >> 8}.${parts[6] & 255}.${parts[7] >> 8}.${parts[7] & 255}`;
-  return allZero || loopback || uniqueLocal || linkLocal || (mappedIpv4 && isBlockedIpv4(mappedAddress));
+  return allZero || loopback || uniqueLocal || linkLocal || multicast || (mappedIpv4 && isBlockedIpv4(mappedAddress));
 }
 
 function assertPublicHost(hostname: string): void {
@@ -62,6 +66,9 @@ function assertPublicHost(hostname: string): void {
 }
 
 export function normalizeArchiveUrl(input: string): string {
+  if (input.length > 8192) {
+    throw new ArchiveUrlError("URL이 너무 깁니다.");
+  }
   let url: URL;
   try {
     url = new URL(input);

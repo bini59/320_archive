@@ -81,10 +81,14 @@ describe("ArchiveService", () => {
   });
 
   it("converges concurrent duplicate submissions on the same archive", async () => {
-    const { service } = await testService();
+    const { service, config } = await testService();
+    const secondService = createArchiveService(config);
+    openServices.push(secondService);
 
     const results = await Promise.all(
-      Array.from({ length: 8 }, () => service.create("https://example.com/concurrent")),
+      Array.from({ length: 8 }, (_, index) =>
+        (index % 2 === 0 ? service : secondService).create("https://example.com/concurrent"),
+      ),
     );
 
     expect(new Set(results.map(({ archive }) => archive.id))).toHaveLength(1);
