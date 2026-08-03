@@ -38,8 +38,8 @@ base: main
 ## Group 2: 통합·E2E 회귀 (parallel)
 > worktree: `tmp/worktrees/feature-issue-4-local-assets-group-2`
 
-- [ ] fixture에 정상 이미지, PDF/plain text, 중복·상대·redirect URL, unsupported MIME, spoofed MIME, oversized/chunked, timeout, private-IP redirect, missing asset을 결정적으로 제공하고 예상하지 않은 외부 요청을 기록한다 (`e2e/fixture-server.mjs`)
-- [ ] 소스 host를 중단한 후에도 읽기본·원문의 이미지가 same-origin에서 보이고 PDF/plain text가 안전한 헤더로 다운로드되며, 거부/실패 asset이 Archive 저장·열람을 막지 않고 browser의 remote fallback 요청을 발생시키지 않음을 Playwright로 검증한다 (`e2e/archive-submission.spec.ts`)
+- [x] fixture에 정상 이미지, PDF/plain text, 중복·상대·redirect URL, unsupported MIME, spoofed MIME, oversized/chunked, timeout, private-IP redirect, missing asset을 결정적으로 제공하고 예상하지 않은 외부 요청을 기록한다 (`e2e/fixture-server.mjs`)
+- [x] 소스 host를 중단한 후에도 읽기본·원문의 이미지가 same-origin에서 보이고 PDF/plain text가 안전한 헤더로 다운로드되며, 거부/실패 asset이 Archive 저장·열람을 막지 않고 browser의 remote fallback 요청을 발생시키지 않음을 Playwright로 검증한다 (`e2e/archive-submission.spec.ts`)
 
 ## Integration
 
