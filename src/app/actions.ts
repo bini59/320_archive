@@ -3,7 +3,10 @@
 import { redirect } from "next/navigation";
 import { getArchiveService } from "@/lib/archive/service";
 import { ArchiveUrlError } from "@/lib/archive/url";
-import type { ArchiveFormState } from "./archive-form-state";
+import {
+  formErrorForCaptureFailure,
+  type ArchiveFormState,
+} from "./archive-form-state";
 
 export async function createArchiveAction(
   _previousState: ArchiveFormState,
@@ -17,6 +20,8 @@ export async function createArchiveAction(
   let archiveId: string;
   try {
     const result = await getArchiveService().create(value.trim());
+    const formError = formErrorForCaptureFailure(result.archive.failureCode);
+    if (formError) return formError;
     archiveId = result.archive.id;
   } catch (error) {
     if (error instanceof ArchiveUrlError) {
