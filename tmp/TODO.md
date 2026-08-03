@@ -35,9 +35,9 @@ base: main
 ## Group 2: 자동화/보안 회귀 (parallel)
 > worktree: `tmp/worktrees/feature-issue-3-readable-archives-group-2`
 
-- [ ] fixture HTML에 본문 구조와 script, event handler, javascript/data URL, base/form/iframe, 외부 image/style 공격 표면을 포함해 정제기와 원문 격리를 결정적으로 검증한다 (`e2e/fixture-server.mjs`)
-- [ ] saved 상세의 기본 읽기본·provenance·캡처 시각·상태, 탭 전환 후 sandboxed 원문 iframe, 원문의 script/탐색/폼/외부 요청 미실행, failed 상세의 안전한 오류만 표시를 Playwright로 검증한다 (`e2e/archive-submission.spec.ts`)
-- [ ] Route Handler의 saved 전용 인가, invalid/missing/failed 응답, CSP·nosniff·cache 헤더, 경로 탐색 불가를 통합 테스트하고, 읽기본의 스크립트·외부 URL·폼 제거를 단위 테스트에서 이중 검증한다 (`src/app/archives/[id]/original/route.test.ts`, `src/lib/archive/readable.test.ts`)
+- [x] fixture HTML에 본문 구조와 script, event handler, javascript/data URL, base/form/iframe, 외부 image/style 공격 표면을 포함해 정제기와 원문 격리를 결정적으로 검증한다 (`e2e/fixture-server.mjs`)
+- [x] saved 상세의 기본 읽기본·provenance·캡처 시각·상태, 탭 전환 후 sandboxed 원문 iframe, 원문의 script/탐색/폼/외부 요청 미실행, failed 상세의 안전한 오류만 표시를 Playwright로 검증한다 (`e2e/archive-submission.spec.ts`)
+- [x] Route Handler의 saved 전용 인가, invalid/missing/failed 응답, CSP·nosniff·cache 헤더, 경로 탐색 불가를 통합 테스트하고, 읽기본의 스크립트·외부 URL·폼 제거를 단위 테스트에서 이중 검증한다 (`src/app/archives/[id]/original/route.test.ts`, `src/lib/archive/readable.test.ts`)
 
 ## Integration
 

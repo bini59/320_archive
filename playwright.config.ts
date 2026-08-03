@@ -37,7 +37,7 @@ export default defineConfig({
       ARCHIVE_STORAGE_ROOT: path.join(e2eStorageRoot, "archives"),
       ARCHIVE_E2E: "1",
       ARCHIVE_E2E_FIXTURE_PORT: "3101",
-      ARCHIVE_RATE_MAX_SUBMISSIONS: "2",
+      ARCHIVE_RATE_MAX_SUBMISSIONS: "20",
       ARCHIVE_STORAGE_MAX_BYTES: "10485760",
     },
   }],

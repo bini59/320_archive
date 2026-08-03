@@ -20,4 +20,20 @@ describe("createReadableHtml", () => {
     expect(render("<body><p>one<div>two &lt; three<script><p>hidden</body>")).toContain("one");
     expect(render("<html><head><title>x</title></head><body> </body></html>")).toMatch(/<body><\/body>/);
   });
+
+  it("preserves readable structure while removing every fixture attack surface", () => {
+    const result = render(`<!doctype html><html><head>
+      <base href="https://evil.test/"><link rel="stylesheet" href="//evil.test/x.css">
+      <style>@import url(https://evil.test/import)</style></head>
+      <body onpageshow="evil()"><main><article><h1>Readable heading</h1>
+      <p><strong>kept text</strong><a href="java&#x73;cript:evil()">link text</a>
+      <img src="data:image/svg+xml,x" srcset="https://evil.test/a 1x" onerror="evil()"></p></article></main>
+      <form action="data:text/html,x"><input><button>submit</button></form>
+      <iframe srcdoc="<script>evil()</script>" src="https://evil.test/frame"></iframe>
+      <script>fetch('https://evil.test/fetch')</script></body></html>`);
+
+    expect(result).toContain("<main><article><h1>Readable heading</h1>");
+    expect(result).toContain("<strong>kept text</strong>link text");
+    expect(result).not.toMatch(/evil\.test|javascript:|data:|<script|<style|<base|<link|<form|<input|<button|<iframe|<img|\son[a-z]+=|\s(?:href|src|srcset|srcdoc|action)=/i);
+  });
 });
