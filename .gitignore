@@ -8,7 +8,12 @@ node_modules/
 *.tsbuildinfo
 
 # Local database and environment secrets
+data/
 *.db
 *.db-journal
 .env
 .env.local
+
+# Test artifacts
+test-results/
+playwright-report/
