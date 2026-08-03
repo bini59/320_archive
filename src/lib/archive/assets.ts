@@ -1,7 +1,37 @@
 export interface AssetCandidate { url: string; kind: "image" | "attachment" }
+import { createHash } from "node:crypto";
+import type { AssetKey, CapturedAsset } from "./types";
+
+const EXTENSIONS = {"image/jpeg":"jpg","image/png":"png","image/gif":"gif","image/webp":"webp","image/avif":"avif","application/pdf":"pdf","text/plain":"txt"} as const;
 
 function safeUrl(value: string, baseUrl: string): string | null {
   try { const url=new URL(value,baseUrl);if(!/^https?:$/.test(url.protocol)||url.username||url.password)return null;url.hash="";return url.href; } catch { return null; }
+}
+
+export function capturedAssetKey(asset: CapturedAsset): AssetKey {
+  return `${createHash("sha256").update(asset.bytes).digest("hex")}.${EXTENSIONS[asset.mimeType]}` as AssetKey;
+}
+
+function attribute(tag:string,name:string):string|null { const match=new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`,"i").exec(tag);return match?(match[1]??match[2]??match[3]):null; }
+function replaceAttribute(tag:string,name:string,value:string|null):string { const pattern=new RegExp(`\\s+${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`,"i");return value===null?tag.replace(pattern,""):pattern.test(tag)?tag.replace(pattern,` ${name}="${value}"`):tag.replace(/\s*\/?\s*>$/,match=>` ${name}="${value}"${match}`); }
+function assetPath(id:string,asset:CapturedAsset):string{return `/archives/${encodeURIComponent(id)}/assets/${capturedAssetKey(asset)}`;}
+
+/** Rewrites only captured references and removes every remote fallback. */
+export function rewriteAssetReferences(html:string,baseUrl:string,archiveId:string,assets:CapturedAsset[]):string {
+  const byUrl=new Map(assets.map(asset=>[asset.originalUrl,asset]));
+  const resolve=(raw:string|null)=>raw?safeUrl(raw,baseUrl):null;
+  return html.replace(/<(img|a)\b[^>]*>/gi,(tag:string,name:string)=>{
+    if(name.toLowerCase()==="img"){
+      const src=resolve(attribute(tag,"src"));const captured=src?byUrl.get(src):undefined;
+      let next=replaceAttribute(tag,"src",captured?assetPath(archiveId,captured):null);
+      const srcset=attribute(tag,"srcset");
+      if(srcset){const entries=srcset.split(",").map(part=>{const bits=part.trim().split(/\s+/);const url=resolve(bits[0]);const asset=url?byUrl.get(url):undefined;return asset?`${assetPath(archiveId,asset)}${bits.slice(1).length?` ${bits.slice(1).join(" ")}`:""}`:null;}).filter(Boolean);next=replaceAttribute(next,"srcset",entries.length?entries.join(", "):null);}
+      return next;
+    }
+    const href=attribute(tag,"href");const resolved=resolve(href);if(!resolved)return tag;
+    let candidate=false;try{const path=new URL(resolved).pathname.toLowerCase();candidate=path.endsWith(".pdf")||path.endsWith(".txt");}catch{}
+    if(!candidate)return tag;const captured=byUrl.get(resolved);return replaceAttribute(tag,"href",captured?assetPath(archiveId,captured):null);
+  });
 }
 function srcsetUrls(value:string):string[]{return value.split(",").map(part=>part.trim().split(/\s+/,1)[0]).filter(Boolean);}
 
