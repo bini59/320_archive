@@ -2,6 +2,7 @@ import type { CaptureFailureCode } from "@/lib/archive/types";
 
 export interface ArchiveFormState {
   error: string | null;
+  tagError?: string | null;
 }
 
 export const initialArchiveFormState: ArchiveFormState = { error: null };
@@ -18,4 +19,8 @@ export function formErrorForCaptureFailure(
   if (!code) return null;
   const error = retryableCaptureErrors[code];
   return error ? { error } : null;
+}
+
+export function formErrorForInvalidTags(message = "태그 형식이 올바르지 않습니다."): ArchiveFormState {
+  return { error: null, tagError: message };
 }

@@ -36,6 +36,25 @@ export function ArchiveForm() {
           {pending ? "캡처 중…" : "아카이브 추가"}
         </button>
       </div>
+      <label className="label mt-5 font-semibold" htmlFor="archive-tags">
+        태그 <span className="font-normal text-base-content/60">(선택)</span>
+      </label>
+      <p className="mb-2 text-sm text-base-content/65" id="archive-tags-description">
+        쉼표로 구분해 최대 10개까지 입력하세요. 예: 개발, 읽을거리
+      </p>
+      <input
+        aria-describedby="archive-tags-description archive-tags-error"
+        aria-invalid={state.tagError ? true : undefined}
+        className="input input-bordered w-full"
+        id="archive-tags"
+        maxLength={329}
+        name="tags"
+        placeholder="개발, 읽을거리"
+        type="text"
+      />
+      <p className="mt-2 min-h-6 text-sm text-error" id="archive-tags-error" aria-live="polite">
+        {state.tagError}
+      </p>
       <p
         className="mt-2 min-h-6 text-sm text-error"
         id="archive-url-error"
