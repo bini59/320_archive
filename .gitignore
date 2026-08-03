@@ -1,0 +1,16 @@
+# Local Codex/project workflow files
+.claude/
+CLAUDE.md
+CONTEXT.md
+graphify-out/
+tmp/
+
+# Dependencies and build outputs
+node_modules/
+.next/
+
+# Local database and environment secrets
+*.db
+*.db-journal
+.env
+.env.local
