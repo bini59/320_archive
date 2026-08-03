@@ -38,14 +38,14 @@ base: main
 ## Group 2: 자동화 및 운영 경계 (병렬)
 > worktree: `tmp/worktrees/feature-issue-1-basic-archive-group-2`
 
-- [ ] Vitest와 Playwright 테스트 명령·개발 의존성을 추가하되 Node 내장 `node:sqlite`를 사용하는 현재 런타임 요구사항을 유지한다 (`package.json`, `pnpm-lock.yaml`)
-- [ ] Vitest의 Node 환경과 path alias를 설정하고 테스트별 임시 SQLite/Archive root 정리를 지원한다 (`vitest.config.ts`)
-- [ ] 정규화 동등성/차이(path, query, fragment), 잘못된 scheme, malformed URL, localhost 및 IPv4/IPv6 내부망 범위를 단위 테스트한다 (`src/lib/archive/url.test.ts`)
-- [ ] 임시 디렉터리에서 신규 생성, 중복 재사용, DB 재시작 후 조회, 메타데이터 생성/복구, 동시 중복 제출을 통합 테스트한다 (`src/lib/archive/service.test.ts`)
-- [ ] Playwright webServer와 테스트 전용 격리 저장 경로를 구성한다 (`playwright.config.ts`)
-- [ ] 공개 폼의 성공 제출→UUID 상세 리다이렉트→URL/pending 표시, 동일 URL 재제출 시 같은 상세 URL, 잘못된/내부망 URL 오류, 없는 UUID의 404를 E2E 검증한다 (`e2e/archive-submission.spec.ts`)
-- [ ] 실제 런타임 데이터가 Git에 들어가지 않도록 `data/`를 제외한다 (`.gitignore`)
-- [ ] 환경 변수 이름, 기본 저장 경로, 로컬 실행 및 테스트 명령을 문서화한다 (`README.md`)
+- [x] Vitest와 Playwright 테스트 명령·개발 의존성을 추가하되 Node 내장 `node:sqlite`를 사용하는 현재 런타임 요구사항을 유지한다 (`package.json`, `pnpm-lock.yaml`)
+- [x] Vitest의 Node 환경과 path alias를 설정하고 테스트별 임시 SQLite/Archive root 정리를 지원한다 (`vitest.config.ts`)
+- [x] 정규화 동등성/차이(path, query, fragment), 잘못된 scheme, malformed URL, localhost 및 IPv4/IPv6 내부망 범위를 단위 테스트한다 (`src/lib/archive/url.test.ts`)
+- [x] 임시 디렉터리에서 신규 생성, 중복 재사용, DB 재시작 후 조회, 메타데이터 생성/복구, 동시 중복 제출을 통합 테스트한다 (`src/lib/archive/service.test.ts`)
+- [x] Playwright webServer와 테스트 전용 격리 저장 경로를 구성한다 (`playwright.config.ts`)
+- [x] 공개 폼의 성공 제출→UUID 상세 리다이렉트→URL/pending 표시, 동일 URL 재제출 시 같은 상세 URL, 잘못된/내부망 URL 오류, 없는 UUID의 404를 E2E 검증한다 (`e2e/archive-submission.spec.ts`)
+- [x] 실제 런타임 데이터가 Git에 들어가지 않도록 `data/`를 제외한다 (`.gitignore`)
+- [x] 환경 변수 이름, 기본 저장 경로, 로컬 실행 및 테스트 명령을 문서화한다 (`README.md`)
 
 ## Integration
 
