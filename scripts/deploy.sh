@@ -22,6 +22,7 @@ previous_image=$(test -n "$container_id" && docker inspect --format '{{.Config.I
 stopped=0
 completed=0
 backup_path=
+backup_complete=0
 
 wait_healthy() {
   deadline=$(( $(date +%s) + READINESS_TIMEOUT_SECONDS ))
@@ -50,7 +51,7 @@ on_exit() {
   status=$?
   trap - EXIT HUP INT TERM
   if test "$completed" != 1 && test "$stopped" = 1; then recover "deployment interrupted" || status=1; fi
-  if test "$completed" != 1 && test -n "$backup_path"; then rm -f "$backup_path" 2>/dev/null || true; fi
+  if test "$backup_complete" != 1 && test -n "$backup_path"; then rm -f "$backup_path" 2>/dev/null || true; fi
   exit "$status"
 }
 trap on_exit EXIT HUP INT TERM
@@ -70,6 +71,7 @@ if ! docker run --rm -v "$VOLUME_NAME:/data:ro" -v "$BACKUP_DIR:/backup" alpine:
   recover "backup failed" || true
   exit 1
 fi
+backup_complete=1
 
 find "$BACKUP_DIR" -type f -name '320-archive-data-*.tar.gz' -print | sort -r | \
   awk -v keep="$BACKUP_RETENTION_COUNT" 'NR > keep' | while IFS= read -r old; do rm -f -- "$old"; done

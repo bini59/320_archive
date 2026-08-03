@@ -24,7 +24,10 @@ case "$*" in
     elif test "${FORCE_UNHEALTHY:-0}" = 1 && test "${ARCHIVE_IMAGE:-}" != "ghcr.io/bini59/320_archive:sha-old"; then echo unhealthy
     else echo healthy; fi
     ;;
-  "run --rm "*"tar "*) test "${FAIL_BACKUP:-0}" != 1 ;;
+  "run --rm "*"tar "*)
+    test "${FAIL_BACKUP:-0}" != 1 || exit 1
+    for arg do case "$arg" in /backup/*.tar.gz) touch "$BACKUP_DIR/${arg##*/}";; esac; done
+    ;;
   "compose -f "*" stop app") test "${FAIL_STOP:-0}" != 1 ;;
 esac
 FAKE
@@ -52,6 +55,7 @@ grep -E "tar -C /data -czf /backup/320-archive-data-[0-9]{8}T[0-9]{6}Z.tar.gz" "
 if FORCE_UNHEALTHY=1 "$ROOT/scripts/deploy.sh" "$IMAGE"; then
   fail "unhealthy rollout succeeded"
 fi
+test -n "$(find "$TMP/backups" -name '320-archive-data-*.tar.gz' -print -quit)" || fail "completed pre-deploy backup was removed after rollout failure"
 assert_log "compose -f $ROOT/compose.yaml up -d --no-deps app"
 grep -F "ARCHIVE_IMAGE=ghcr.io/bini59/320_archive:sha-old" "$TMP/docker.log" >/dev/null || fail "prior image was not used for rollback"
 grep -F "rollback succeeded" "$TMP/error" >/dev/null 2>&1 || true
@@ -61,6 +65,7 @@ if FORCE_UNHEALTHY=1 FORCE_ROLLBACK_UNHEALTHY=1 "$ROOT/scripts/deploy.sh" "$IMAG
 grep -F "ROLLBACK FAILED" "$TMP/error" >/dev/null || fail "rollback health failure was not explicit"
 
 : >"$TMP/docker.log"; rm -f "$TMP/health-count"
+find "$TMP/backups" -type f -delete
 if FAIL_BACKUP=1 "$ROOT/scripts/deploy.sh" "$IMAGE" 2>"$TMP/error"; then fail "failed backup succeeded"; fi
 grep -F "ARCHIVE_IMAGE=ghcr.io/bini59/320_archive:sha-old" "$TMP/docker.log" >/dev/null || fail "backup failure did not recover previous app"
 test -z "$(find "$TMP/backups" -name '320-archive-data-*.tar.gz' -print -quit)" || fail "failed backup left a partial archive"
