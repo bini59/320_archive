@@ -1,5 +1,6 @@
 services:
   app:
+    image: ${ARCHIVE_IMAGE:-320-archive:local}
     build:
       context: .
     environment:
@@ -8,8 +9,8 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: "3000"
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     restart: unless-stopped
     volumes:
       - archive-data:/data
@@ -23,6 +24,15 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    networks:
+      api-net:
+        aliases:
+          - archive-320
+
+networks:
+  api-net:
+    external: true
+    name: api-net
 
 volumes:
   archive-data:

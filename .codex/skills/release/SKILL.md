@@ -9,14 +9,15 @@ description: Release 320_archive to its Docker environment. Use when the user wa
 
 - `main` is the production branch.
 - Push the verified release commit to `origin/main`.
-- No CI/CD workflow is configured yet. Deploy through the existing Docker environment using the procedure introduced with the deployment configuration.
-- Cloudflare Tunnel runs outside this repository. After deployment, the operator must add or confirm the ingress route to the application service and verify the public URL manually.
+- GitHub Actions validates the ARM64 build, publishes an immutable `sha-<full-sha>` image to GHCR, and deploys it through the dedicated `archive-prod` self-hosted runner.
+- Wait for the CI/publish/deploy jobs to succeed. Production deployments are serialized and automatically back up the data volume, verify readiness, and roll back on failure.
+- Cloudflare Tunnel runs outside this repository. Confirm its Public Hostname origin remains `http://archive-320:3000`, then verify the public URL manually.
 
 ## Hotfix
 
 - Create `hotfix/<short-description>` from `main`.
 - Make and verify the smallest safe fix, then open a pull request to `main`.
-- After merge, follow the same Docker deployment and Tunnel-routing verification as production.
+- After merge, wait for the same automated deployment and Tunnel-routing verification as production.
 
 ## Versioning
 
