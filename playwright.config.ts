@@ -21,7 +21,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
+  webServer: [{
+    command: "node e2e/fixture-server.mjs",
+    url: "http://127.0.0.1:3101",
+    reuseExistingServer: false,
+    env: { ...process.env, ARCHIVE_E2E_FIXTURE_PORT: "3101" },
+  }, {
     command: "pnpm dev --hostname 127.0.0.1 --port 3100",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
@@ -30,6 +35,10 @@ export default defineConfig({
       ...process.env,
       ARCHIVE_DATABASE_PATH: path.join(e2eStorageRoot, "archive.db"),
       ARCHIVE_STORAGE_ROOT: path.join(e2eStorageRoot, "archives"),
+      ARCHIVE_E2E: "1",
+      ARCHIVE_E2E_FIXTURE_PORT: "3101",
+      ARCHIVE_RATE_MAX_SUBMISSIONS: "2",
+      ARCHIVE_STORAGE_MAX_BYTES: "10485760",
     },
-  },
+  }],
 });

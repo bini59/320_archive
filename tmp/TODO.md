@@ -38,11 +38,11 @@ base: main
 ## Group 2: 자동화 및 운영 경계 (병렬)
 > worktree: `tmp/worktrees/feature-issue-2-safe-webpage-capture-group-2`
 
-- [ ] IP 분류와 DNS 결과 전부 검사, literal IP, redirect hop 재검증, DNS rebinding 방지를 위한 고정 lookup, scheme/credentials/8 KiB URL 거부를 단위 테스트한다. DNS resolver와 HTTP transport를 주입해 공용 인터넷에 의존하지 않는다 (`src/lib/archive/url.test.ts`, `src/lib/archive/fetcher.test.ts`)
-- [ ] 로컬 fixture 서버로 HTML 성공, 상대/절대 redirect, redirect 6번째 거부, 전체 timeout, non-HTML, Content-Length 및 chunked/decompressed 5 MiB 초과, 연결 종료를 검증한다. 테스트 서버 주소는 운영 public-IP 정책을 우회하지 않고 명시적 테스트 resolver/transport seam으로만 허용한다 (`src/lib/archive/fetcher.test.ts`)
-- [ ] 임시 SQLite/파일 저장소에서 `pending → saved`, title/description/capture metadata와 정확한 original bytes, 실패 상태/안전 문구, 부분 파일 정리, 중복 미재캡처, 동시 제출 한도, 시간창 rate limit, 총 byte quota 및 프로세스 재시작 후 quota 지속을 통합 테스트한다 (`src/lib/archive/service.test.ts`)
-- [ ] Playwright가 외부 `example.com`에 의존하지 않도록 테스트 전용 fixture origin/DNS seam을 구성하고, 제출 후 saved 상세 정보와 실패 상세 문구, rate/quota 폼 거절을 사용자 흐름으로 검증한다 (`playwright.config.ts`, `e2e/archive-submission.spec.ts`)
-- [ ] 캡처 정책, 환경 변수 기본값, 동기 처리의 10초 상한, 저장 파일(`original.html`, `snapshot.json`), 인증 없는 공개 endpoint의 프로세스/SQLite rate·quota 경계를 문서화하고 Cloudflare rate limit은 선택적 추가 방어로 명시한다 (`README.md`)
+- [x] IP 분류와 DNS 결과 전부 검사, literal IP, redirect hop 재검증, DNS rebinding 방지를 위한 고정 lookup, scheme/credentials/8 KiB URL 거부를 단위 테스트한다. DNS resolver와 HTTP transport를 주입해 공용 인터넷에 의존하지 않는다 (`src/lib/archive/url.test.ts`, `src/lib/archive/fetcher.test.ts`)
+- [x] 로컬 fixture 서버로 HTML 성공, 상대/절대 redirect, redirect 6번째 거부, 전체 timeout, non-HTML, Content-Length 및 chunked/decompressed 5 MiB 초과, 연결 종료를 검증한다. 테스트 서버 주소는 운영 public-IP 정책을 우회하지 않고 명시적 테스트 resolver/transport seam으로만 허용한다 (`src/lib/archive/fetcher.test.ts`)
+- [x] 임시 SQLite/파일 저장소에서 `pending → saved`, title/description/capture metadata와 정확한 original bytes, 실패 상태/안전 문구, 부분 파일 정리, 중복 미재캡처, 동시 제출 한도, 시간창 rate limit, 총 byte quota 및 프로세스 재시작 후 quota 지속을 통합 테스트한다 (`src/lib/archive/service.test.ts`)
+- [x] Playwright가 외부 `example.com`에 의존하지 않도록 테스트 전용 fixture origin/DNS seam을 구성하고, 제출 후 saved 상세 정보와 실패 상세 문구, rate/quota 폼 거절을 사용자 흐름으로 검증한다 (`playwright.config.ts`, `e2e/archive-submission.spec.ts`)
+- [x] 캡처 정책, 환경 변수 기본값, 동기 처리의 10초 상한, 저장 파일(`original.html`, `snapshot.json`), 인증 없는 공개 endpoint의 프로세스/SQLite rate·quota 경계를 문서화하고 Cloudflare rate limit은 선택적 추가 방어로 명시한다 (`README.md`)
 
 ## Integration
 
