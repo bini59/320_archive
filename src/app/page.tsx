@@ -11,6 +11,7 @@ export default function Home() {
             사라질 수 있는 웹 콘텐츠를 오래 보관할 공간입니다.
           </p>
           <ArchiveForm />
+          <a className="btn btn-ghost mt-4" href="/archives">공개 아카이브 둘러보기</a>
         </div>
       </div>
     </main>

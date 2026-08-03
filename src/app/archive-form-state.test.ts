@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formErrorForCaptureFailure } from "./archive-form-state";
+import { formErrorForCaptureFailure, formErrorForInvalidTags } from "./archive-form-state";
 
 describe("formErrorForCaptureFailure", () => {
   it.each([
@@ -12,5 +12,12 @@ describe("formErrorForCaptureFailure", () => {
 
   it("leaves ordinary capture failures for the detail page", () => {
     expect(formErrorForCaptureFailure("network")).toBeNull();
+  });
+
+  it("returns a field-specific error for invalid tags", () => {
+    expect(formErrorForInvalidTags()).toEqual({
+      error: null,
+      tagError: "태그 형식이 올바르지 않습니다.",
+    });
   });
 });

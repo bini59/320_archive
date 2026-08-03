@@ -33,16 +33,47 @@ export interface Archive {
   snapshot: Snapshot | null;
   failureCode: CaptureFailureCode | null;
   failureMessage: string | null;
+  tags: Tag[];
+}
+
+export const ARCHIVE_SEARCH_QUERY_MAX_LENGTH = 200;
+export const ARCHIVE_SEARCH_MAX_TOKENS = 12;
+export const ARCHIVE_LIST_PAGE_SIZE = 20;
+export const ARCHIVE_LIST_MAX_PAGE = 1000;
+export const ARCHIVE_TAG_MAX_COUNT = 10;
+export const ARCHIVE_TAG_MAX_LENGTH = 32;
+export const ARCHIVE_INDEX_TEXT_MAX_LENGTH = 1_000_000;
+
+export interface Tag { name: string; slug: string }
+export interface PublicArchiveItem {
+  id: string;
+  originalUrl: string;
+  title: string | null;
+  description: string | null;
+  capturedAt: string;
+  tags: Tag[];
+}
+export interface PublicArchiveQuery { q?: string; tag?: string; page?: number }
+export interface PublicArchiveResult {
+  items: PublicArchiveItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
 }
 
 export interface ArchiveCreationResult { archive: Archive; created: boolean }
-export interface BudgetReservation { release(): void; commit(byteLength: number): boolean }
+export interface BudgetReservation {
+  release(): void;
+  finalizeSaved(input: { archiveId: string; snapshot: Snapshot; indexText: string; tags: Tag[]; byteLength: number }): Archive | null;
+}
 
 export interface ArchiveRepository {
-  createOrGet(input: { originalUrl: string; normalizedUrl: string }): ArchiveCreationResult;
+  createOrGet(input: { originalUrl: string; normalizedUrl: string; tags?: Tag[] }): ArchiveCreationResult;
   findById(id: string): Archive | null;
-  markSaved(id: string, snapshot: Snapshot): Archive | null;
+  markSaved(id: string, snapshot: Snapshot, indexText?: string, tags?: Tag[]): Archive | null;
   markFailed(id: string, code: CaptureFailureCode, message: string): Archive | null;
+  listPublic(query: PublicArchiveQuery): PublicArchiveResult;
   reserveBudget(input: { windowMs: number; maxSubmissions: number; maxStoredBytes: number; reserveBytes: number; timeoutMs: number }): BudgetReservation | null;
   close(): void;
 }
