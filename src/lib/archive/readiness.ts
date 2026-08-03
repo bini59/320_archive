@@ -7,7 +7,14 @@ export async function checkArchiveReadiness(input: ArchiveConfigInput = {}): Pro
   const config = resolveArchiveConfig(input);
   const database = new DatabaseSync(config.databasePath);
   try {
-    database.prepare("SELECT 1").get();
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      // Exercise a real main-database write without leaving health-check state behind.
+      database.exec("CREATE TABLE __archive_readiness_probe(value INTEGER); ROLLBACK");
+    } catch (error) {
+      try { database.exec("ROLLBACK"); } catch { /* transaction did not start */ }
+      throw error;
+    }
   } finally {
     database.close();
   }
