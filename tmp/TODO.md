@@ -19,12 +19,12 @@ base: main
 ## Group 0: 선행 (자원 캡처·저장 계약)
 > 병렬 작업 전 반드시 먼저 완료
 
-- [ ] `Asset`, `AssetManifest`, `CapturedAsset`, `AssetFetcher`, `SnapshotStore.readAsset` 계약을 추가하고, 외부 입력이 파일 경로나 Response 헤더를 직접 결정하지 못하게 저장 key·MIME을 타입으로 구분한다 (`src/lib/archive/types.ts`)
-- [ ] HTML fetch와 binary fetch가 `resolvePublicUrl`·redirect 재검증·DNS IP pinning·abort·decompression size accounting을 공유하도록 transport를 일반화하되, HTML MIME 계약은 기존 동작을 유지한다 (`src/lib/archive/fetcher.ts`, `src/lib/archive/fetcher.test.ts`)
-- [ ] binary asset fetcher에 MIME allow-list, `Content-Type`·실제 body 모두의 10 MiB 상한, 10초 전체 deadline, redirect 횟수, 압축 해제 후 크기 계수를 적용하고 private/special IP, MIME spoof, oversized/chunked/decompressed body, timeout, unsafe redirect를 거부한다 (`src/lib/archive/asset-fetcher.ts`, `src/lib/archive/asset-fetcher.test.ts`)
-- [ ] HTML에서 `img[src]`, `img[srcset]`, 및 `a[href]`의 PDF/plain-text 후보를 최종 page URL 기준으로 해석하고, `http(s)`만 선택·URL 정규화/중복 제거·문서 순서·20개 상한을 적용한다. `data:`, `blob:`, `file:`, credentials, malformed URL은 후보에서 제외한다 (`src/lib/archive/assets.ts`, `src/lib/archive/assets.test.ts`)
-- [ ] 성공한 asset을 digest 기반 안전한 key와 고정 확장자로 `assets/`에 저장하고 manifest·원문·읽기본을 하나의 stage 디렉터리에 fsync한 뒤 원자적으로 승격한다. 자원 조회는 UUID+manifest에 등록된 key+`O_NOFOLLOW`·regular-file·canonical-root 검증을 모두 통과해야 한다 (`src/lib/archive/storage.ts`, `src/lib/archive/storage.test.ts`)
-- [ ] 환경 변수로 자원별/총 byte, 개수, timeout을 조절할 수 있게 하되 안전한 10 MiB/50 MiB/20개/10초 기본값과 양의 정수 검증을 제공한다 (`src/lib/archive/config.ts`)
+- [x] `Asset`, `AssetManifest`, `CapturedAsset`, `AssetFetcher`, `SnapshotStore.readAsset` 계약을 추가하고, 외부 입력이 파일 경로나 Response 헤더를 직접 결정하지 못하게 저장 key·MIME을 타입으로 구분한다 (`src/lib/archive/types.ts`)
+- [x] HTML fetch와 binary fetch가 `resolvePublicUrl`·redirect 재검증·DNS IP pinning·abort·decompression size accounting을 공유하도록 transport를 일반화하되, HTML MIME 계약은 기존 동작을 유지한다 (`src/lib/archive/fetcher.ts`, `src/lib/archive/fetcher.test.ts`)
+- [x] binary asset fetcher에 MIME allow-list, `Content-Type`·실제 body 모두의 10 MiB 상한, 10초 전체 deadline, redirect 횟수, 압축 해제 후 크기 계수를 적용하고 private/special IP, MIME spoof, oversized/chunked/decompressed body, timeout, unsafe redirect를 거부한다 (`src/lib/archive/asset-fetcher.ts`, `src/lib/archive/asset-fetcher.test.ts`)
+- [x] HTML에서 `img[src]`, `img[srcset]`, 및 `a[href]`의 PDF/plain-text 후보를 최종 page URL 기준으로 해석하고, `http(s)`만 선택·URL 정규화/중복 제거·문서 순서·20개 상한을 적용한다. `data:`, `blob:`, `file:`, credentials, malformed URL은 후보에서 제외한다 (`src/lib/archive/assets.ts`, `src/lib/archive/assets.test.ts`)
+- [x] 성공한 asset을 digest 기반 안전한 key와 고정 확장자로 `assets/`에 저장하고 manifest·원문·읽기본을 하나의 stage 디렉터리에 fsync한 뒤 원자적으로 승격한다. 자원 조회는 UUID+manifest에 등록된 key+`O_NOFOLLOW`·regular-file·canonical-root 검증을 모두 통과해야 한다 (`src/lib/archive/storage.ts`, `src/lib/archive/storage.test.ts`)
+- [x] 환경 변수로 자원별/총 byte, 개수, timeout을 조절할 수 있게 하되 안전한 10 MiB/50 MiB/20개/10초 기본값과 양의 정수 검증을 제공한다 (`src/lib/archive/config.ts`)
 
 ## Group 1: 캡처 오케스트레이션·서빙 (parallel)
 > worktree: `tmp/worktrees/feature-issue-4-local-assets-group-1`

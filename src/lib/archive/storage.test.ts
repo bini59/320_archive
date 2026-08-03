@@ -27,6 +27,8 @@ describe("LocalSnapshotStore", () => {
     await expect(store.read(id, "readable")).rejects.toBeInstanceOf(SnapshotContentNotFoundError);
   });
 
+  it("stores digest-keyed assets and only reads manifest members",async()=>{const {root,store}=await fixture();const manifest=await store.save(id,Buffer.from("o"),Buffer.from("r"),snapshot,[{originalUrl:"https://example.com/a.png",finalUrl:"https://cdn.example/a.png",mimeType:"image/png",bytes:Buffer.from([1,2,3])}]);expect(manifest.assets[0].key).toMatch(/^[a-f0-9]{64}\.png$/);expect((await store.readAsset(id,manifest.assets[0].key)).bytes).toEqual(Buffer.from([1,2,3]));await writeFile(path.join(root,id,"assets","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png"),"secret");await expect(store.readAsset(id,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png")).rejects.toBeInstanceOf(SnapshotContentNotFoundError);});
+
   it("rejects traversal IDs and symbolic content files", async () => {
     const { root, store } = await fixture();
     await expect(store.read("../outside", "original")).rejects.toBeInstanceOf(TypeError);

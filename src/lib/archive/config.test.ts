@@ -1,0 +1,2 @@
+import {describe,expect,it} from "vitest";import {resolveArchiveConfig} from "./config";
+describe("asset config",()=>{it("uses safe defaults",()=>{const c=resolveArchiveConfig();expect([c.assetMaxBytes,c.assetTotalMaxBytes,c.assetMaxCount,c.assetTimeoutMs]).toEqual([10485760,52428800,20,10000]);});it("rejects non-positive limits",()=>{expect(()=>resolveArchiveConfig({assetMaxCount:0})).toThrow("positive integer");});});
