@@ -49,6 +49,9 @@ export default async function ArchivePage({ params }: { params: Promise<{ id: st
               <span className={`badge ${status.badge}`}>{status.label}</span>
             </div>
             <p className="text-base-content/70">{status.description}</p>
+            {archive.status === "saved" && archive.snapshot?.description ? (
+              <p className="text-base-content/80">{archive.snapshot.description}</p>
+            ) : null}
             <dl className="grid gap-4 text-sm sm:grid-cols-3">
               <div className="sm:col-span-3">
                 <dt className="font-semibold text-base-content/60">원본 URL</dt>

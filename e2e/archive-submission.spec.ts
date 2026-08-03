@@ -23,13 +23,15 @@ test("shows the sanitized reading view and provenance by default", async ({ page
   await expect(page.getByText(sourceUrl, { exact: true })).toBeVisible();
   await expect(page.getByText("캡처 시각")).toBeVisible();
   await expect(page.locator("time[datetime]")).toHaveCount(2);
-  await expect(page.locator("script, form, iframe")).toHaveCount(0);
-  await expect(page.locator('[href], [src], [srcset], [action]')).toHaveCount(0);
+  const readingPanel = page.getByRole("tabpanel", { name: "읽기" });
+  await expect(readingPanel.locator("script, form, iframe")).toHaveCount(0);
+  await expect(readingPanel.locator('[href], [src], [srcset], [action]')).toHaveCount(0);
 });
 
 test("isolates original HTML in a tokenless sandbox without requests or navigation", async ({ page, request }) => {
   await request.get("http://127.0.0.1:3101/reset-requests");
   await submit(page, "http://isolated.fixture.test:3101/success");
+  await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
   const detailUrl = page.url();
 
   await page.getByRole("tab", { name: "원문" }).click();
