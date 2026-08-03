@@ -7,7 +7,11 @@ import { resolvePublicUrl, type AddressResolver, systemResolver } from "./url";
 
 export type FetchFailureCode = "network"|"timeout"|"not_html"|"too_large"|"redirect"|"invalid_url";
 export class CaptureError extends Error { constructor(readonly code:FetchFailureCode) { super(code); this.name="CaptureError"; } }
-export interface FetcherOptions { timeoutMs:number; maxBytes:number; maxRedirects:number; resolver?:AddressResolver }
+export interface FetcherOptions {
+  timeoutMs:number; maxBytes:number; maxRedirects:number; resolver?:AddressResolver;
+  /** Test-only seam. Policy validation always uses `resolver`; this only changes the socket destination. */
+  connectionAddress?: (validatedAddress: string, url: URL) => { address: string; family: 4 | 6 };
+}
 
 export class SafeCaptureClient {
   constructor(private readonly options:FetcherOptions) {}
@@ -20,10 +24,18 @@ export class SafeCaptureClient {
   }
   private async follow(input:string, redirects:number, signal:AbortSignal):Promise<CapturedPage> {
     let resolved; try { resolved=await resolvePublicUrl(input,this.options.resolver??systemResolver); } catch { throw new CaptureError("invalid_url"); }
-    const {url,addresses}=resolved; const chosen=addresses[0];
+    const {url,addresses}=resolved; const validated=addresses[0];
+    const chosen=this.options.connectionAddress?.(validated.address,url) ?? validated;
     const response=await new Promise<http.IncomingMessage>((resolve,reject)=>{
       const transport=url.protocol==='https:'?https:http;
-      const request=transport.request(url,{headers:{accept:"text/html","accept-encoding":"gzip, deflate, br",host:url.host},servername:url.hostname,lookup:(_h,_o,cb)=>cb(null,chosen.address,chosen.family)},resolve);
+      const lookup:http.RequestOptions["lookup"]=(_hostname,options,callback)=>{
+        if (typeof options === "object" && options.all) {
+          (callback as (error:NodeJS.ErrnoException|null,addresses:Array<{address:string;family:4|6}>)=>void)(null,[chosen]);
+        } else {
+          (callback as (error:NodeJS.ErrnoException|null,address:string,family:4|6)=>void)(null,chosen.address,chosen.family);
+        }
+      };
+      const request=transport.request(url,{headers:{accept:"text/html","accept-encoding":"gzip, deflate, br",host:url.host},servername:url.hostname,lookup},resolve);
       const onAbort=()=>request.destroy(signal.reason instanceof Error?signal.reason:new CaptureError("timeout")); signal.addEventListener("abort",onAbort,{once:true});
       request.once("error",reject); request.once("close",()=>signal.removeEventListener("abort",onAbort)); request.end();
     });
