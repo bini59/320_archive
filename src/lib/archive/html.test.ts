@@ -1,0 +1,2 @@
+import {describe,expect,it} from "vitest"; import {extractHtmlMetadata} from "./html";
+describe("extractHtmlMetadata",()=>{it("extracts and bounds normalized metadata",()=>{const result=extractHtmlMetadata(Buffer.from(`<title> A &amp;   B </title><meta name="description" content=" hello   world ">`));expect(result).toEqual({title:"A & B",description:"hello world"});});it("tolerates malformed and missing markup",()=>{expect(extractHtmlMetadata(Buffer.from("<title>unfinished"))).toEqual({title:null,description:null});});});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ArchiveUrlError, normalizeArchiveUrl } from "./url";
+import { ArchiveUrlError, isGlobalUnicastAddress, normalizeArchiveUrl, resolvePublicUrl } from "./url";
 
 describe("normalizeArchiveUrl", () => {
   it("normalizes equivalent HTTP URLs while preserving path, query, and fragment", () => {
@@ -78,5 +78,50 @@ describe("normalizeArchiveUrl", () => {
     expect(() => normalizeArchiveUrl(`https://example.com/${"a".repeat(8192)}`)).toThrow(
       "너무 깁니다",
     );
+  });
+});
+
+describe("capture address policy", () => {
+  it.each(["4000::1", "5fff::1", "2002:0a00:0001::1", "64:ff9b::0a00:1"])("blocks non-global or private-transition IPv6 %s", address => {
+    expect(isGlobalUnicastAddress(address)).toBe(false);
+  });
+  it.each(["192.0.2.1", "198.51.100.1", "203.0.113.1", "2001:db8::1"])("blocks documentation address %s", address => {
+    expect(isGlobalUnicastAddress(address)).toBe(false);
+  });
+  it("rejects a hostname when any DNS answer is unsafe", async () => {
+    await expect(resolvePublicUrl("https://example.com", async () => [
+      {address:"93.184.216.34",family:4}, {address:"127.0.0.1",family:4},
+    ])).rejects.toThrow(ArchiveUrlError);
+  });
+
+  it("accepts every DNS answer only when all are global unicast", async () => {
+    const result = await resolvePublicUrl("https://example.com/article", async () => [
+      { address: "93.184.216.34", family: 4 },
+      { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+    ]);
+
+    expect(result.addresses).toEqual([
+      { address: "93.184.216.34", family: 4 },
+      { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+    ]);
+  });
+
+  it.each([
+    ["credentials", "https://user:secret@example.com/"],
+    ["unsupported scheme", "ftp://example.com/file"],
+    ["oversized input", `https://example.com/${"x".repeat(8192)}`],
+  ])("rejects %s before resolving DNS", async (_case, input) => {
+    let calls = 0;
+    await expect(resolvePublicUrl(input, async () => {
+      calls += 1;
+      return [{ address: "93.184.216.34", family: 4 }];
+    })).rejects.toBeInstanceOf(ArchiveUrlError);
+    expect(calls).toBe(0);
+  });
+
+  it("validates literal IP input with the same public-address policy", async () => {
+    await expect(resolvePublicUrl("http://127.0.0.1/private", async () => {
+      throw new Error("literal addresses must not require DNS");
+    })).rejects.toBeInstanceOf(ArchiveUrlError);
   });
 });
