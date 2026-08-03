@@ -9,7 +9,7 @@ import { CaptureError } from "./fetcher";
 import { ImmediateSemaphore } from "./limiter";
 import { ArchiveService } from "./service";
 import { LocalSnapshotStore } from "./storage";
-import type { CaptureClient, CapturedPage } from "./types";
+import type { AssetFetcher, CaptureClient, CapturedPage } from "./types";
 
 const roots: string[] = [];
 const services: ArchiveService[] = [];
@@ -33,6 +33,8 @@ async function fixture(options: {
   maxSubmissions?: number;
   maxStoredBytes?: number;
   reserveBytes?: number;
+  assetFetcher?: AssetFetcher;
+  assetTimeoutMs?: number;
 } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "320-archive-capture-test-"));
   roots.push(root);
@@ -55,6 +57,8 @@ async function fixture(options: {
       reserveBytes: options.reserveBytes ?? 1_000,
       timeoutMs: 1_000,
     },
+    options.assetFetcher,
+    { maxCount:20,maxBytes:1_000,timeoutMs:options.assetTimeoutMs??10_000 },
   );
   services.push(service);
   return { archiveRoot, capture, databasePath, service };
@@ -66,6 +70,9 @@ afterEach(async () => {
 });
 
 describe("ArchiveService synchronous capture", () => {
+  it("bounds the entire asset phase and does not multiply the deadline per candidate",async()=>{const capture=new StubCapture({bytes:Buffer.from('<img src="a.png"><img src="b.png">'),contentType:"text/html",finalUrl:"https://example.com/page"});let calls=0;const assetFetcher:AssetFetcher={fetch:async(_url,signal)=>{calls++;await new Promise<void>((resolve,reject)=>{const timer=setTimeout(resolve,1_000);signal?.addEventListener("abort",()=>{clearTimeout(timer);reject(new Error("aborted"));},{once:true});});return {originalUrl:"x",finalUrl:"x",mimeType:"image/png",bytes:Buffer.from([1])};}};const started=Date.now();const {service}=await fixture({capture,assetFetcher,assetTimeoutMs:30});expect((await service.create("https://example.com/page")).archive.status).toBe("saved");expect(Date.now()-started).toBeLessThan(300);expect(calls).toBe(1);});
+
+  it("rejects candidate-kind MIME mismatches",async()=>{const capture=new StubCapture({bytes:Buffer.from('<img src="image.pdf"><a href="note.txt">note</a>'),contentType:"text/html",finalUrl:"https://example.com/page"});const assetFetcher:AssetFetcher={fetch:async url=>({originalUrl:url,finalUrl:url,mimeType:url.endsWith("pdf")?"application/pdf":"image/png",bytes:Buffer.from("x")})};const {archiveRoot,service}=await fixture({capture,assetFetcher});const result=await service.create("https://example.com/mismatch");expect(await readFile(path.join(archiveRoot,result.archive.id,"assets.json"),"utf8")).toContain('"assets": []');});
   it("persists exact HTML and snapshot metadata before returning saved", async () => {
     const bytes = Buffer.from('<html><head><title>  Example &amp; title </title><meta name="description" content="A saved page"></head><body>exact original</body></html>');
     const capture = new StubCapture({ bytes, contentType: "text/html", finalUrl: "https://example.com/final" });

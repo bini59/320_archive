@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ request }) => {
+  await request.get("http://127.0.0.1:3101/reset-requests");
+});
+
 async function submit(page: Page, url: string) {
   await page.goto("/");
   await page.getByLabel(/URL/i).fill(url);
@@ -25,7 +29,10 @@ test("shows the sanitized reading view and provenance by default", async ({ page
   await expect(page.locator("time[datetime]")).toHaveCount(2);
   const readingPanel = page.getByRole("tabpanel", { name: "읽기" });
   await expect(readingPanel.locator("script, form, iframe")).toHaveCount(0);
-  await expect(readingPanel.locator('[href], [src], [srcset], [action]')).toHaveCount(0);
+  await expect(readingPanel.locator('[action], [style], [onload], [onerror]')).toHaveCount(0);
+  for (const value of await readingPanel.locator("[href], [src]").evaluateAll((elements) => elements.map((element) => element.getAttribute("href") ?? element.getAttribute("src")))) {
+    expect(value).toMatch(/^\/archives\/[0-9a-f-]{36}\/assets\/[a-f0-9]{64}\.(?:png|pdf|txt)$/);
+  }
 });
 
 test("isolates original HTML in a tokenless sandbox without requests or navigation", async ({ page, request }) => {
@@ -52,10 +59,64 @@ test("shows a safe reason for a failed fixture capture", async ({ page }) => {
   await expect(page.getByText(/경로|ENOENT|snapshot\.json|original\.html/i)).toHaveCount(0);
 });
 
-test("returns a retryable form error at the SQLite submission boundary", async ({ page }) => {
-  for (let index = 0; index < 21; index += 1) {
-    await submit(page, `http://rate-${index}.fixture.test:3101/success`);
+test("preserves accepted assets and remains self-contained after the source goes offline", async ({ page, request }) => {
+  await submit(page, "http://assets-page.fixture.test:3101/success");
+  await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
+
+  const readable = page.getByRole("tabpanel", { name: "읽기" });
+  const image = readable.getByRole("img", { name: "preserved fixture image" });
+  await expect(image).toBeVisible();
+  const imagePath = await image.getAttribute("src");
+  expect(imagePath).toMatch(/^\/archives\/[0-9a-f-]{36}\/assets\/[a-f0-9]{64}\.png$/);
+
+  const pdfPath = await readable.getByRole("link", { name: "fixture PDF" }).getAttribute("href");
+  const textPath = await readable.getByRole("link", { name: "fixture text" }).getAttribute("href");
+  expect(pdfPath).toMatch(/\.pdf$/);
+  expect(textPath).toMatch(/\.txt$/);
+
+  await request.get("http://127.0.0.1:3101/source-offline");
+  await page.reload();
+  await expect(page.getByRole("img", { name: "preserved fixture image" })).toBeVisible();
+
+  const imageResponse = await request.get(imagePath!);
+  expect(imageResponse.status()).toBe(200);
+  expect(imageResponse.headers()["content-type"]).toBe("image/png");
+  expect(imageResponse.headers()["content-disposition"]).toBe("inline");
+  expect(imageResponse.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(Number(imageResponse.headers()["content-length"])).toBeGreaterThan(0);
+
+  for (const [path, type] of [[pdfPath!, "application/pdf"], [textPath!, "text/plain"]] as const) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toBe(type);
+    expect(response.headers()["content-disposition"]).toMatch(/^attachment; filename="archived-asset\.(?:pdf|txt)"$/);
+    expect(response.headers()["cache-control"]).toBe("private, no-store");
+    expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   }
-  await expect(page).toHaveURL("/");
-  await expect(page.getByText(/요청 한도|잠시 후 다시/)).toBeVisible();
+
+  await page.getByRole("tab", { name: "원문" }).click();
+  const original = page.frameLocator('iframe[title*="원문"]');
+  await expect(original.getByRole("img", { name: "preserved fixture image" })).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(await request.get("http://127.0.0.1:3101/requests").then((response) => response.json())).toEqual([]);
+});
+
+test("keeps the archive usable while rejected assets have no remote fallback", async ({ page, request }) => {
+  await submit(page, "http://rejections.fixture.test:3101/success");
+  await expect(page.locator(".badge", { hasText: "저장 완료" })).toBeVisible();
+
+  const readable = page.getByRole("tabpanel", { name: "읽기" });
+  for (const name of [
+    "rejected unsupported image", "rejected spoofed image", "rejected oversized image",
+    "rejected chunked image", "rejected timeout image", "rejected private redirect image", "missing image",
+  ]) {
+    await expect(readable.getByRole("img", { name })).toHaveCount(0);
+  }
+  await expect(readable.locator('[src*="fixture.test"], [srcset*="fixture.test"]')).toHaveCount(0);
+
+  await request.get("http://127.0.0.1:3101/source-offline");
+  await page.reload();
+  await page.getByRole("tab", { name: "원문" }).click();
+  await page.waitForTimeout(300);
+  expect(await request.get("http://127.0.0.1:3101/requests").then((response) => response.json())).toEqual([]);
 });
