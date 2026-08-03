@@ -63,7 +63,10 @@ export interface PublicArchiveResult {
 }
 
 export interface ArchiveCreationResult { archive: Archive; created: boolean }
-export interface BudgetReservation { release(): void; commit(byteLength: number): boolean }
+export interface BudgetReservation {
+  release(): void;
+  finalizeSaved(input: { archiveId: string; snapshot: Snapshot; indexText: string; tags: Tag[]; byteLength: number }): Archive | null;
+}
 
 export interface ArchiveRepository {
   createOrGet(input: { originalUrl: string; normalizedUrl: string; tags?: Tag[] }): ArchiveCreationResult;

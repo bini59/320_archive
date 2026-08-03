@@ -1,12 +1,19 @@
 import { ARCHIVE_TAG_MAX_COUNT, ARCHIVE_TAG_MAX_LENGTH, type Tag } from "./types";
 
 const TAG_PATTERN = /^[\p{L}\p{N}]+(?:[ -][\p{L}\p{N}]+)*$/u;
+const TAG_SLUG_PATTERN = /^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u;
 
 export class TagValidationError extends Error {
   constructor(message = "태그 형식이 올바르지 않습니다.") {
     super(message);
     this.name = "TagValidationError";
   }
+}
+
+export function normalizeTagSlug(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const slug = value.normalize("NFKC").toLocaleLowerCase("und");
+  return Array.from(slug).length <= ARCHIVE_TAG_MAX_LENGTH && TAG_SLUG_PATTERN.test(slug) ? slug : null;
 }
 
 export function parseTags(value: string | null | undefined): Tag[] {
