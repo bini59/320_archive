@@ -90,4 +90,35 @@ describe("capture address policy", () => {
       {address:"93.184.216.34",family:4}, {address:"127.0.0.1",family:4},
     ])).rejects.toThrow(ArchiveUrlError);
   });
+
+  it("accepts every DNS answer only when all are global unicast", async () => {
+    const result = await resolvePublicUrl("https://example.com/article", async () => [
+      { address: "93.184.216.34", family: 4 },
+      { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+    ]);
+
+    expect(result.addresses).toEqual([
+      { address: "93.184.216.34", family: 4 },
+      { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+    ]);
+  });
+
+  it.each([
+    ["credentials", "https://user:secret@example.com/"],
+    ["unsupported scheme", "ftp://example.com/file"],
+    ["oversized input", `https://example.com/${"x".repeat(8192)}`],
+  ])("rejects %s before resolving DNS", async (_case, input) => {
+    let calls = 0;
+    await expect(resolvePublicUrl(input, async () => {
+      calls += 1;
+      return [{ address: "93.184.216.34", family: 4 }];
+    })).rejects.toBeInstanceOf(ArchiveUrlError);
+    expect(calls).toBe(0);
+  });
+
+  it("validates literal IP input with the same public-address policy", async () => {
+    await expect(resolvePublicUrl("http://127.0.0.1/private", async () => {
+      throw new Error("literal addresses must not require DNS");
+    })).rejects.toBeInstanceOf(ArchiveUrlError);
+  });
 });
