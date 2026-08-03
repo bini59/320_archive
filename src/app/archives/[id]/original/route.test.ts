@@ -36,6 +36,7 @@ describe("GET /archives/[id]/original", () => {
     expect(response.headers.get("cache-control")).toMatch(/(?:no-store|private)/i);
     const csp = response.headers.get("content-security-policy") ?? "";
     expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("img-src 'self'");
     expect(csp).toContain("base-uri 'none'");
     expect(csp).toContain("form-action 'none'");
     expect(csp).toContain("frame-ancestors 'self'");

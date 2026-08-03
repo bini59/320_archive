@@ -29,11 +29,11 @@ base: main
 ## Group 1: 캡처 오케스트레이션·서빙 (parallel)
 > worktree: `tmp/worktrees/feature-issue-4-local-assets-group-1`
 
-- [ ] 페이지 캡처 후 asset을 독립적으로 수집하되 20개/50 MiB 예산을 초과하면 남은 후보를 건너뛰고, 개별 DNS·network·timeout·MIME·size 실패는 nonfatal 결과로 기록한다. 저장 승격/전체 quota commit 실패만 Archive 트랜잭션 실패로 다룬다 (`src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`)
-- [ ] 원문 HTML은 성공한 image/attachment 참조만 `/archives/{id}/assets/{key}`로 치환하고, `srcset`은 성공 항목만 재구성한다. 실패·미지원 remote image/srcset은 제거하고 attachment link는 비활성화해 열람 시 소스 host로의 네트워크 폴백을 금지한다 (`src/lib/archive/assets.ts`, `src/lib/archive/assets.test.ts`)
-- [ ] 읽기본 sanitizer에 `img`/`src`/`alt`/`width`/`height`와 보존된 attachment `a[href]`만 허용하고, same-origin asset path 패턴 외 URL·event/style·관련 우회를 모두 제거한다 (`src/lib/archive/readable.ts`, `src/lib/archive/readable.test.ts`)
-- [ ] Next.js 16 `params: Promise<...>` 규약의 asset Route Handler를 추가하고, DB의 saved 상태와 manifest membership을 매 요청 재검증한 뒤 저장 MIME·정확한 length로 바이트를 반환한다. 이미지는 `inline`, PDF/plain text는 `attachment`+RFC 5987에 의존하지 않는 서버 파일명, 공통으로 `nosniff`·private/no-store와 안전한 not-found를 적용한다 (`src/app/archives/[id]/assets/[key]/route.ts`, `src/app/archives/[id]/assets/[key]/route.test.ts`)
-- [ ] sandboxed 원문의 CSP는 기존 차단을 유지하면서 `img-src 'self'`만 추가하고, script/style/connect/media/font/frame/object/form/base와 외부 origin은 계속 차단한다. 보존 첨부파일은 iframe 네비게이션에 의존하지 않고 다운로드 Response로만 제공한다 (`src/app/archives/[id]/original/route.ts`, `src/app/archives/[id]/original/route.test.ts`)
+- [x] 페이지 캡처 후 asset을 독립적으로 수집하되 20개/50 MiB 예산을 초과하면 남은 후보를 건너뛰고, 개별 DNS·network·timeout·MIME·size 실패는 nonfatal 결과로 기록한다. 저장 승격/전체 quota commit 실패만 Archive 트랜잭션 실패로 다룬다 (`src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`)
+- [x] 원문 HTML은 성공한 image/attachment 참조만 `/archives/{id}/assets/{key}`로 치환하고, `srcset`은 성공 항목만 재구성한다. 실패·미지원 remote image/srcset은 제거하고 attachment link는 비활성화해 열람 시 소스 host로의 네트워크 폴백을 금지한다 (`src/lib/archive/assets.ts`, `src/lib/archive/assets.test.ts`)
+- [x] 읽기본 sanitizer에 `img`/`src`/`alt`/`width`/`height`와 보존된 attachment `a[href]`만 허용하고, same-origin asset path 패턴 외 URL·event/style·관련 우회를 모두 제거한다 (`src/lib/archive/readable.ts`, `src/lib/archive/readable.test.ts`)
+- [x] Next.js 16 `params: Promise<...>` 규약의 asset Route Handler를 추가하고, DB의 saved 상태와 manifest membership을 매 요청 재검증한 뒤 저장 MIME·정확한 length로 바이트를 반환한다. 이미지는 `inline`, PDF/plain text는 `attachment`+RFC 5987에 의존하지 않는 서버 파일명, 공통으로 `nosniff`·private/no-store와 안전한 not-found를 적용한다 (`src/app/archives/[id]/assets/[key]/route.ts`, `src/app/archives/[id]/assets/[key]/route.test.ts`)
+- [x] sandboxed 원문의 CSP는 기존 차단을 유지하면서 `img-src 'self'`만 추가하고, script/style/connect/media/font/frame/object/form/base와 외부 origin은 계속 차단한다. 보존 첨부파일은 iframe 네비게이션에 의존하지 않고 다운로드 Response로만 제공한다 (`src/app/archives/[id]/original/route.ts`, `src/app/archives/[id]/original/route.test.ts`)
 
 ## Group 2: 통합·E2E 회귀 (parallel)
 > worktree: `tmp/worktrees/feature-issue-4-local-assets-group-2`
