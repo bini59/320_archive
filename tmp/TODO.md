@@ -1,63 +1,57 @@
 ---
 track: heavy
 exec: worktree
-files: 17
+files: 13
 groups: 3
 dependencies: group-0 → group-1, group-0 → group-2
-branch: feature/issue-2-safe-webpage-capture
+branch: feature/issue-3-readable-archives
 base: main
 ---
 
-# Issue #2: 제출한 웹페이지의 안전한 동기 캡처
+# Issue #3: 캡처 아카이브 안전한 읽기
 
 ## Overview
 
-공개 URL 제출 직후 같은 Server Action 요청 안에서 HTML 캡처를 완료하고, 성공 시 원문과 스냅샷 메타데이터를 로컬 저장소에 남긴 뒤 Archive를 `saved`로 전환한다. 캡처 실패도 Archive 자체는 유지하여 `failed` 상태와 제한된 사용자용 사유를 공개 상세 페이지에 표시하며, 인증을 추가하지 않는 대신 SSRF 방어와 프로세스/SQLite 기반 자원 경계를 애플리케이션 내부에서 강제한다.
+저장 완료된 Archive 상세에 캡처 시점에 생성·저장한 정제 HTML 읽기 본문과 출처(원본 URL, 캡처 시각, 상태)를 표시한다. 원본 HTML은 소스 사이트로 이동하지 않고 same-origin 전용 Route Handler에서 제공하되, 읽기 화면과 원본 화면 모두 외부 네트워크·스크립트·폼·상위 탐색을 차단하는 것을 보안 계약으로 한다.
 
-캡처 정책은 HTTP(S), DNS 결과의 global-unicast 주소만 허용, 선택한 주소로 연결 고정(IP pinning), redirect 매 hop 재검증, 최대 redirect 5회, 전체 10초 timeout, 압축 해제 후 HTML 5 MiB, `text/html` 응답만 허용으로 확정한다. Next.js 16 문서에 따라 공개 Server Action을 직접 호출 가능한 불신 경계로 취급하고, 동기 캡처가 끝난 뒤에만 상세 페이지로 redirect한다.
+원본 바이트는 보존용 `original.html`, 읽기본은 위험 태그/속성을 제거하고 문서 내 링크·미디어를 비활성화한 `readable.html`로 캡처 트랜잭션 안에서 함께 저장한다. 예전 스냅샷에 `readable.html`이 없는 경우는 성공 화면에서 원문만 제공하고 내부 경로나 파일 오류를 노출하지 않는 후방 호환 계약을 적용한다. Next.js 16의 `params: Promise<...>`, 동적 렌더링, Route Handler Response 헤더 규약을 따른다.
 
-## Group 0: 선행 (capture domain/storage)
+## Group 0: 선행 (정제/저장 계약)
 > 병렬 작업 전 반드시 먼저 완료
 
-- [ ] `ArchiveStatus`를 `pending | saved | failed`로 확장하고 title, description, capturedAt, finalUrl, byteLength, safe failure code/message를 표현하는 Snapshot/캡처 결과 타입을 정의한다. Repository에는 상태 전이를 위한 `markSaved`/`markFailed`, abuse 예산 예약 인터페이스를 추가한다 (`src/lib/archive/types.ts`)
-- [ ] 기존 `archives` CHECK 제약을 세 상태로 안전하게 마이그레이션하고 snapshot/failure 컬럼을 추가한다. `pending → saved|failed`만 허용하는 조건부 update, 중복 URL의 기존 최종 상태 재사용, SQLite 트랜잭션 기반 전역 시간창 제출 한도와 총 저장 바이트 quota 예약/해제를 구현한다 (`src/lib/archive/database.ts`)
-- [ ] URL 구문 검증을 캡처 보안 경계로 확장한다. URL 최대 8 KiB, HTTP(S) 전용, credentials 금지에 더해 DNS A/AAAA 전체 결과가 global-unicast인지 판정하고 특수 목적/사설/loopback/link-local/multicast/unspecified/documentation 주소를 거부하는 순수 함수와 resolver 주입 지점을 제공한다 (`src/lib/archive/url.ts`)
-- [ ] Node `http`/`https` 요청으로 안전한 캡처 클라이언트를 신설한다. 검증된 DNS 주소 하나를 `lookup`에 고정하면서 원래 hostname을 Host/SNI/TLS 검증에 유지하고, 자동 redirect를 끈 채 상대 Location을 해석하여 매 hop DNS 재조회·IP 고정 검증한다. redirect 5회, 전체 AbortSignal 10초, `content-type`의 `text/html` 확인, Content-Length 선검사와 압축 해제 후 스트림 5 MiB 초과 즉시 중단, 응답/소켓 정리를 구현한다 (`src/lib/archive/fetcher.ts`)
-- [ ] HTML에서 `<title>`과 description meta를 제한적으로 추출하고 entity/공백을 정규화하되, malformed HTML·누락 태그를 캡처 실패로 만들지 않으며 메타데이터 필드 길이를 제한한다 (`src/lib/archive/html.ts`)
-- [ ] `<archive-root>/<uuid>/original.html`과 `snapshot.json`을 sibling 임시 파일로 fsync한 뒤 승격하고, 둘이 모두 준비된 후에만 DB를 `saved`로 전환하는 저장 계약을 구현한다. 중간 실패 시 임시/부분 결과를 제거하고 `failed`로 귀결해 공개 조회에서 반쪽 스냅샷이 성공으로 보이지 않게 한다 (`src/lib/archive/storage.ts`)
-- [ ] 10초/5 MiB/redirect/동시 캡처/SQLite rate 및 byte quota 기본값을 환경 변수로 해석·검증하고 테스트에서 작은 경계를 주입할 수 있게 한다. 프로세스별 동시 캡처 semaphore는 대기열을 무제한 늘리지 않고 즉시 안전한 과부하 결과를 반환하도록 구성한다 (`src/lib/archive/config.ts`, `src/lib/archive/limiter.ts`)
-- [ ] create-or-get 뒤 신규 `pending` Archive만 quota를 예약하고 즉시 캡처한다. 저장 성공 시 `saved`, 예상 가능한 네트워크/정책/파싱/용량 실패 시 내부 세부정보를 기록하지 않는 허용 목록 기반 안전 문구와 `failed`로 전환하며, 예상 밖 저장/DB 오류는 원인을 노출하지 않고 일관된 실패 상태를 남긴다. 이미 `saved`/`failed`인 중복 제출은 재요청하지 않는다 (`src/lib/archive/service.ts`)
+- [ ] 스냅샷 저장소에 보존 원문과 정제 읽기본을 저장·조회하는 명시적 API를 추가하고, 조회 결과는 임의 파일 경로가 아닌 허용된 `original | readable` 종류로만 표현한다 (`src/lib/archive/types.ts`)
+- [ ] HTML을 문서로 파싱해 `script`, `style`, `iframe`, `object`, `embed`, `form`, `input`, `button`, `meta`, `base`, `link`, `svg`, 이벤트 핸들러, `style`, `src/srcset/href/action` 등 능동·외부 리소스 표면을 allow-list로 제거하고, 본문 중심의 자체 완결형 HTML을 생성한다. malformed HTML, entity, 빈 본문, 우회성 URL/속성 사례를 안전하게 처리한다 (`src/lib/archive/readable.ts`, `src/lib/archive/readable.test.ts`, `package.json`, `pnpm-lock.yaml`)
+- [ ] `LocalSnapshotStore.save` entrypoint이 `original.html`, `readable.html`, `snapshot.json` 세 파일을 stage 디렉터리에 fsync한 뒤 한 번에 승격하게 하고, UUID 검증·정규화된 root 내부 경로·일반 파일 확인을 거친 읽기 API를 구현한다. 기존 저장분의 `readable.html` 부재는 typed not-found로 구분한다 (`src/lib/archive/storage.ts`, `src/lib/archive/storage.test.ts`)
+- [ ] 캡처 원문에서 metadata와 정제 읽기본을 한 번만 생성해 원자적으로 저장한 후에만 Archive를 `saved`로 전환하고, 정제/저장 실패는 허용 목록의 안전한 `failed` 사유로 귀결시킨다. 상세/Route Handler가 사용할 Archive+content 조회 진입점을 추가한다 (`src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`)
 
-## Group 1: 제출 및 상세 UI (병렬)
-> worktree: `tmp/worktrees/feature-issue-2-safe-webpage-capture-group-1`
+## Group 1: 읽기/원문 UI (parallel)
+> worktree: `tmp/worktrees/feature-issue-3-readable-archives-group-1`
 
-- [x] 공개 Server Action 입력을 계속 불신 데이터로 검증하고 capture service를 await한 뒤 `/archives/{id}`로 redirect한다. rate/quota/과부하 거절은 예외 세부정보 없이 폼에 재시도 가능한 안전 문구로 반환하고, 생성된 Archive의 일반 캡처 실패는 상세 페이지에서 확인하도록 redirect한다 (`src/app/actions.ts`, `src/app/archive-form-state.ts`)
-- [x] 최대 URL 길이를 브라우저 힌트에도 반영하고, 동기 요청 중 버튼/문구를 `캡처 중…`으로 표시하여 최대 10초 작업임을 명확히 하며 서버 오류를 기존 `aria-live` 영역에 유지한다 (`src/app/archive-form.tsx`)
-- [x] 공개 상세 페이지에서 `pending/saved/failed`별 한국어 badge와 설명을 렌더링한다. saved에는 title, description, 최종 URL, 캡처 시각, 원문 byte 수를 표시하고 failed에는 저장된 안전 문구만 표시하며 로컬 원문 파일 경로/내부 오류는 노출하지 않는다 (`src/app/archives/[id]/page.tsx`)
+- [ ] saved 상세를 출처 헤더와 `읽기 | 원문` 탭으로 구성하고, 기본 읽기 탭에 정제 HTML을 가독성 있는 typography/container로 렌더링한다. 원본 URL은 provenance 문자열로 유지하되 캡처 열람 흐름에서 소스 탐색을 유발하는 클릭 링크로 두지 않는다 (`src/app/archives/[id]/page.tsx`, `src/app/archives/[id]/archive-viewer.tsx`)
+- [ ] 원문 탭은 전용 same-origin content endpoint를 `sandbox` 속성에 allow token이 없는 iframe으로 표시하며, 정제 HTML을 React tree에 주입하는 경우에도 캡처 시 sanitizer 계약을 반드시 전제한 신뢰 경계를 코드에 명시한다. 키보드 탭 전환·선택 상태·iframe 제목을 제공한다 (`src/app/archives/[id]/archive-viewer.tsx`)
+- [ ] 상세 ID와 `saved`+스냅샷 상태를 서버에서 다시 검증한 후에만 저장 content를 반환하는 Route Handler를 추가한다. 원문 Response에 `Content-Type: text/html`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`, `Cache-Control`, `Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox` 및 파일과 함께 저장되지 않은 고정 CSP 방어를 적용하고, pending/failed/missing/invalid ID는 content를 노출하지 않는다 (`src/app/archives/[id]/original/route.ts`)
+- [ ] failed 상세는 탭/iframe/본문을 렌더링하지 않고 저장된 allow-list 실패 문구와 출처·상태만 표시하며, pending과 예전 saved 스냅샷은 파일 부재 시 깨진 UI 대신 안전한 fallback을 표시한다 (`src/app/archives/[id]/page.tsx`)
 
-## Group 2: 자동화 및 운영 경계 (병렬)
-> worktree: `tmp/worktrees/feature-issue-2-safe-webpage-capture-group-2`
+## Group 2: 자동화/보안 회귀 (parallel)
+> worktree: `tmp/worktrees/feature-issue-3-readable-archives-group-2`
 
-- [x] IP 분류와 DNS 결과 전부 검사, literal IP, redirect hop 재검증, DNS rebinding 방지를 위한 고정 lookup, scheme/credentials/8 KiB URL 거부를 단위 테스트한다. DNS resolver와 HTTP transport를 주입해 공용 인터넷에 의존하지 않는다 (`src/lib/archive/url.test.ts`, `src/lib/archive/fetcher.test.ts`)
-- [x] 로컬 fixture 서버로 HTML 성공, 상대/절대 redirect, redirect 6번째 거부, 전체 timeout, non-HTML, Content-Length 및 chunked/decompressed 5 MiB 초과, 연결 종료를 검증한다. 테스트 서버 주소는 운영 public-IP 정책을 우회하지 않고 명시적 테스트 resolver/transport seam으로만 허용한다 (`src/lib/archive/fetcher.test.ts`)
-- [x] 임시 SQLite/파일 저장소에서 `pending → saved`, title/description/capture metadata와 정확한 original bytes, 실패 상태/안전 문구, 부분 파일 정리, 중복 미재캡처, 동시 제출 한도, 시간창 rate limit, 총 byte quota 및 프로세스 재시작 후 quota 지속을 통합 테스트한다 (`src/lib/archive/service.test.ts`)
-- [x] Playwright가 외부 `example.com`에 의존하지 않도록 테스트 전용 fixture origin/DNS seam을 구성하고, 제출 후 saved 상세 정보와 실패 상세 문구, rate/quota 폼 거절을 사용자 흐름으로 검증한다 (`playwright.config.ts`, `e2e/archive-submission.spec.ts`)
-- [x] 캡처 정책, 환경 변수 기본값, 동기 처리의 10초 상한, 저장 파일(`original.html`, `snapshot.json`), 인증 없는 공개 endpoint의 프로세스/SQLite rate·quota 경계를 문서화하고 Cloudflare rate limit은 선택적 추가 방어로 명시한다 (`README.md`)
+- [ ] fixture HTML에 본문 구조와 script, event handler, javascript/data URL, base/form/iframe, 외부 image/style 공격 표면을 포함해 정제기와 원문 격리를 결정적으로 검증한다 (`e2e/fixture-server.mjs`)
+- [ ] saved 상세의 기본 읽기본·provenance·캡처 시각·상태, 탭 전환 후 sandboxed 원문 iframe, 원문의 script/탐색/폼/외부 요청 미실행, failed 상세의 안전한 오류만 표시를 Playwright로 검증한다 (`e2e/archive-submission.spec.ts`)
+- [ ] Route Handler의 saved 전용 인가, invalid/missing/failed 응답, CSP·nosniff·cache 헤더, 경로 탐색 불가를 통합 테스트하고, 읽기본의 스크립트·외부 URL·폼 제거를 단위 테스트에서 이중 검증한다 (`src/app/archives/[id]/original/route.test.ts`, `src/lib/archive/readable.test.ts`)
 
 ## Integration
 
-- [ ] Group 0 완료 후 UI와 테스트 worktree를 변경량 적은 순서로 머지하고 캡처 타입/상태 전이 계약에 맞춰 충돌을 정리한다
+- [ ] Group 0 완료 후 UI와 테스트 worktree를 변경량이 적은 순서로 머지하고 SnapshotStore/content API 계약에 맞춰 충돌을 정리한다
 - [ ] `pnpm lint` + `pnpm typecheck` + `pnpm test` + `pnpm build` 실행
-- [ ] `pnpm test:e2e`로 성공 캡처, 안전한 실패 표시, abuse 경계의 실제 Server Action 흐름 확인
+- [ ] `pnpm test:e2e`로 saved 읽기/원문 전환, XSS/네트워크/탐색 격리, failed 상태를 검증
 - [ ] `graphify update .`로 지식 그래프 갱신
-- [ ] 코드 리뷰: SSRF/DNS rebinding/redirect/압축 폭탄/파일 원자성/SQLite 경쟁 조건을 포함한 정확성·보안 1차, 과설계·중복 추상화 정리 2차
+- [ ] 코드 리뷰: sanitizer allow-list·저장 원자성·경로 탐색·XSS/CSP/sandbox·상태별 content 노출을 확인하는 정확성/보안 1차, 중복·불필요한 추상화를 줄이는 2차
 
 ## Risks
 
-- [DNS rebinding/redirect SSRF]: URL 문자열 검사에 의존하지 않고 매 hop의 모든 DNS 응답을 검사한 뒤 허용된 한 IP로 실제 socket lookup을 고정한다. redirect마다 scheme, credentials, DNS, IP pinning을 처음부터 반복한다.
-- [압축 폭탄과 느린 응답]: Content-Length는 조기 거절 최적화로만 사용하고 실제 압축 해제 후 스트림 바이트를 5 MiB에서 중단한다. DNS·연결·redirect·body 전체에 하나의 10초 deadline을 적용한다.
-- [DB/파일 이중 쓰기]: 파일 쌍을 임시 경로에 완성·동기화한 뒤 승격하고 마지막에 조건부 DB 상태 전이를 수행한다. `saved`만 완전한 스냅샷을 의미하며 실패 시 임시/부분 파일을 청소한다.
-- [중복/동시 캡처]: SQLite의 normalized URL UNIQUE와 조건부 상태 전이를 기준 진실로 사용하고, 신규 행만 캡처한다. 프로세스 semaphore와 SQLite 예산 예약을 함께 사용해 단일 프로세스 폭주와 재시작/다중 연결 우회를 각각 막는다.
-- [공개 endpoint abuse]: 인증은 범위 밖으로 유지하되 URL 8 KiB, 즉시 동시성 거절, SQLite rolling-window 제출 한도와 총 저장 byte quota를 기본 활성화한다. 클라이언트 IP 헤더 신뢰 문제를 피하기 위해 앱 내부 한도는 우선 전역 경계로 두고, 운영 프록시의 per-IP rate limit은 추가 계층으로 둔다.
-- [동기 Server Action 지연]: 캡처를 action 안에서 완료한다는 Issue #2 계약을 유지하고 버튼 상태와 10초 deadline을 제공한다. 이후 비동기 worker 전환은 별도 이슈로 남긴다.
-- [안전한 오류 노출]: DNS 주소, 내부 host, socket/TLS/파일/SQLite 메시지를 공개 모델에 저장하지 않고, 안정적인 실패 code를 허용 목록의 한국어 문구로 매핑한다.
+- [캡처 HTML XSS]: 렌더링 시점의 블랙리스트에 의존하지 않고 캡처 시 파서 기반 태그/속성 allow-list로 `readable.html`을 고정한다. 원문은 별도 endpoint+CSP+토큰 없는 iframe sandbox로 다중 격리한다.
+- [소스 사이트 통신/탐색]: sanitizer가 모든 활성 URL 속성과 form/base를 제거하고, content endpoint CSP는 script/style/img/media/connect/form/navigation을 `default-src 'none'`과 sandbox로 차단한다. 상세의 원본 URL은 자동 탐색 링크로 제공하지 않는다.
+- [저장 계약 변경]: 원문·읽기본·metadata를 모두 stage에 완성한 뒤 디렉터리를 승격하고 마지막에 DB를 saved로 전환한다. 중간 실패는 전체 cleanup과 failed 상태로 귀결시킨다.
+- [기존 저장분 호환성]: `readable.html`이 없는 기존 saved Archive는 provenance와 원문 탭을 유지하고 읽기본 부재를 안내한다. 요청 시 원문을 재정제해 쓰는 lazy migration은 보존 데이터 변경·동시성을 유발하므로 범위에서 제외한다.
+- [원문 endpoint 노출]: UUID 형식만으로 신뢰하지 않고 DB의 saved 상태와 snapshot 존재를 다시 확인한다. 경로는 root+UUID+고정 파일명으로만 구성하고 심볼릭 등 일반 파일이 아닌 대상은 거부한다.
+- [파서/sanitizer 선택]: 직접 정규식 파싱은 malformed HTML 우회에 취약하므로 서버 환경의 검증된 HTML parser/sanitizer를 최소 의존성으로 도입하고 악성 fixture 회귀 테스트로 업그레이드를 통제한다.
