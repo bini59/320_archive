@@ -6,7 +6,7 @@
 
 - Next.js 16, React 19, TypeScript 7
 - Tailwind CSS v4, daisyUI v5
-- SQLite (`better-sqlite3`)
+- SQLite (Node.js built-in `node:sqlite`)
 - pnpm
 
 TypeScript 7.0.2를 사용합니다. 현재 `typescript-eslint`는 TS 7 Compiler API를 아직 지원하지 않아, `pnpm lint`는 TS 파서 기반 규칙을 실행하지 않습니다. `pnpm typecheck`와 `pnpm build`가 타입 검증을 담당합니다.

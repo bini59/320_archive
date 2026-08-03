@@ -6,7 +6,7 @@
 
 - Next.js 16 / React 19 / TypeScript 7 / pnpm
 - Tailwind CSS v4 + daisyUI v5
-- SQLite via `better-sqlite3`
+- SQLite via Node.js built-in `node:sqlite`
 - 기존 Docker 환경에 배포하고, 외부 Cloudflare Tunnel이 서비스로 라우팅한다.
 
 ## Development flow
