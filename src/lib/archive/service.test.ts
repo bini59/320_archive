@@ -128,6 +128,14 @@ describe("ArchiveService synchronous capture", () => {
     expect(capture.calls).toBe(1);
   });
 
+  it("normalizes and merges submission tags and exposes searchable readable text", async () => {
+    const { service } = await fixture();
+    const first = await service.create("https://example.com/tagged", " News, news, 한국 소식 ");
+    await service.create("https://example.com/tagged", "Tech");
+    expect(service.findById(first.archive.id)?.tags.map((tag) => tag.slug)).toEqual(["news", "tech", "한국-소식"]);
+    expect(service.listPublic({ q: "Example", tag: "news" }).items[0]?.id).toBe(first.archive.id);
+  });
+
   it("rejects excess concurrent work immediately instead of queueing it", async () => {
     let unblock!: () => void;
     const blocked = new Promise<void>((resolve) => { unblock = resolve; });

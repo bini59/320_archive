@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createReadableHtml } from "./readable";
+import { createReadableHtml, extractReadableText } from "./readable";
 
 const render = (html: string) => new TextDecoder().decode(createReadableHtml(Buffer.from(html)));
 
@@ -35,5 +35,16 @@ describe("createReadableHtml", () => {
     expect(result).toContain("<main><article><h1>Readable heading</h1>");
     expect(result).toContain("<strong>kept text</strong>link text");
     expect(result).not.toMatch(/evil\.test|javascript:|data:|<script|<style|<base|<link|<form|<input|<button|<iframe|<img|\son[a-z]+=|\s(?:href|src|srcset|srcdoc|action)=/i);
+  });
+});
+
+describe("extractReadableText", () => {
+  it("deterministically strips markup and hidden executable content", () => {
+    expect(extractReadableText(Buffer.from("<style>secret</style><h1>Hello &amp; 안녕</h1><script>hidden()</script><p>world</p>"))).toBe("Hello &amp; 안녕 world");
+  });
+  it("normalizes whitespace and bounds indexed content", () => {
+    const result = extractReadableText(Buffer.from(`<p> a\n b </p>${"x".repeat(1_100_000)}`));
+    expect(result.startsWith("a b x")).toBe(true);
+    expect(result.length).toBe(1_000_000);
   });
 });

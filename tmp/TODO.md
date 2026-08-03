@@ -27,11 +27,11 @@ base: main
 ## Group 0: 선행 (domain/database contract)
 > 병렬 작업 전 반드시 먼저 완료
 
-- [ ] `Archive`, `Snapshot`, 생성 입력, 공개 목록 item/query/result, `Tag` 타입과 repository/service 계약을 추가하고 검색·태그·페이지 제한 상수를 정의한다 (`src/lib/archive/types.ts`)
-- [ ] 태그 파서/정규화기를 구현하고 빈 값, Unicode/대소문자, 중복, 허용 문자, 개수·길이 초과를 단위 테스트한다 (`src/lib/archive/tags.ts`, `src/lib/archive/tags.test.ts`)
-- [ ] `tags`, `archive_tags`, FTS5 virtual table 및 목록용 인덱스를 멱등 migration으로 추가하고, 저장 완료 시 snapshot 메타·정제 본문·태그·FTS 행을 한 트랜잭션에 기록한다. saved-only 목록, 제목/URL/body 검색, 태그 교집합 필터, 안정적 정렬, count/page, 기존 DB migration 및 다중 연결 동작을 통합 테스트한다 (`src/lib/archive/database.ts`, `src/lib/archive/database.test.ts`)
-- [ ] 캡처 결과에서 색인용 plain text를 결정적으로 추출하되 script/style/markup을 제외하고 공백과 최대 색인 길이를 제한하는 함수 및 테스트를 추가한다 (`src/lib/archive/readable.ts`, `src/lib/archive/readable.test.ts`)
-- [ ] `ArchiveService.create(url, tags)`가 정규화 태그를 저장하고 readable 본문을 DB 저장 성공 단계에 전달하며, 공개 조회 메서드가 repository 계약을 노출하도록 확장한다. DB 실패 시 파일 cleanup 및 기존 실패 계약을 보존하는 테스트를 추가한다 (`src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`)
+- [x] `Archive`, `Snapshot`, 생성 입력, 공개 목록 item/query/result, `Tag` 타입과 repository/service 계약을 추가하고 검색·태그·페이지 제한 상수를 정의한다 (`src/lib/archive/types.ts`)
+- [x] 태그 파서/정규화기를 구현하고 빈 값, Unicode/대소문자, 중복, 허용 문자, 개수·길이 초과를 단위 테스트한다 (`src/lib/archive/tags.ts`, `src/lib/archive/tags.test.ts`)
+- [x] `tags`, `archive_tags`, FTS5 virtual table 및 목록용 인덱스를 멱등 migration으로 추가하고, 저장 완료 시 snapshot 메타·정제 본문·태그·FTS 행을 한 트랜잭션에 기록한다. saved-only 목록, 제목/URL/body 검색, 태그 교집합 필터, 안정적 정렬, count/page, 기존 DB migration 및 다중 연결 동작을 통합 테스트한다 (`src/lib/archive/database.ts`, `src/lib/archive/database.test.ts`)
+- [x] 캡처 결과에서 색인용 plain text를 결정적으로 추출하되 script/style/markup을 제외하고 공백과 최대 색인 길이를 제한하는 함수 및 테스트를 추가한다 (`src/lib/archive/readable.ts`, `src/lib/archive/readable.test.ts`)
+- [x] `ArchiveService.create(url, tags)`가 정규화 태그를 저장하고 readable 본문을 DB 저장 성공 단계에 전달하며, 공개 조회 메서드가 repository 계약을 노출하도록 확장한다. DB 실패 시 파일 cleanup 및 기존 실패 계약을 보존하는 테스트를 추가한다 (`src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`)
 
 ## Group 1: 공개 라이브러리와 제출 UX (병렬)
 > worktree: `tmp/worktrees/feature-issue-5-public-library-group-1`
