@@ -7,9 +7,10 @@ import { SnapshotContentNotFoundError } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FILE_NAMES: Record<SnapshotContentKind, string> = { original: "original.html", readable: "readable.html" };
+interface LocalSnapshotStoreOptions { beforeContentOpen?: () => void | Promise<void> }
 
 export class LocalSnapshotStore implements SnapshotStore {
-  constructor(private readonly archiveRoot: string) {}
+  constructor(private readonly archiveRoot: string, private readonly options: LocalSnapshotStoreOptions = {}) {}
 
   async save(id: string, original: Uint8Array, readable: Uint8Array, snapshot: Snapshot): Promise<void> {
     this.validateId(id);
@@ -39,11 +40,14 @@ export class LocalSnapshotStore implements SnapshotStore {
     try {
       const archiveDir = await realpath(this.inside(root, id));
       if (path.dirname(archiveDir) !== root) throw new Error("archive directory escaped root");
+      await this.options.beforeContentOpen?.();
       const target = this.inside(archiveDir, FILE_NAMES[kind]);
       const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
       try {
         const stat = await handle.stat();
         if (!stat.isFile()) throw new Error("not a regular file");
+        const openedPath = await realpath(`/proc/self/fd/${handle.fd}`);
+        if (path.dirname(openedPath) !== archiveDir) throw new Error("opened content escaped archive directory");
         return { kind, bytes: await handle.readFile() };
       } finally { await handle.close(); }
     } catch {

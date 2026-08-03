@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -41,6 +41,23 @@ describe("LocalSnapshotStore", () => {
     roots.push(outside);
     await writeFile(path.join(outside, "original.html"), "outside secret");
     await symlink(outside, path.join(root, id));
+    await expect(store.read(id, "original")).rejects.toBeInstanceOf(SnapshotContentNotFoundError);
+  });
+
+  it("rejects content opened through a parent directory replaced after validation", async () => {
+    const { root } = await fixture();
+    const archiveDir = path.join(root, id);
+    const displacedDir = path.join(root, "displaced");
+    const outside = await mkdtemp(path.join(os.tmpdir(), "snapshot-race-outside-"));
+    roots.push(outside);
+    await mkdir(archiveDir);
+    await writeFile(path.join(archiveDir, "original.html"), "trusted");
+    await writeFile(path.join(outside, "original.html"), "outside secret");
+    const store = new LocalSnapshotStore(root, { beforeContentOpen: async () => {
+      await rename(archiveDir, displacedDir);
+      await symlink(outside, archiveDir);
+    } });
+
     await expect(store.read(id, "original")).rejects.toBeInstanceOf(SnapshotContentNotFoundError);
   });
 });
