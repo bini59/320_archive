@@ -8,6 +8,12 @@ function safeUrl(value: string, baseUrl: string): string | null {
   try { const url=new URL(value,baseUrl);if(!/^https?:$/.test(url.protocol)||url.username||url.password)return null;url.hash="";return url.href; } catch { return null; }
 }
 
+function documentBase(html: string, pageUrl: string): string {
+  const baseTag = /<base\b[^>]*>/i.exec(html)?.[0];
+  const href = baseTag ? attribute(baseTag, "href") : null;
+  return (href && safeUrl(href, pageUrl)) ?? pageUrl;
+}
+
 export function capturedAssetKey(asset: CapturedAsset): AssetKey {
   return `${createHash("sha256").update(asset.bytes).digest("hex")}.${EXTENSIONS[asset.mimeType]}` as AssetKey;
 }
@@ -18,6 +24,7 @@ function assetPath(id:string,asset:CapturedAsset):string{return `/archives/${enc
 
 /** Rewrites only captured references and removes every remote fallback. */
 export function rewriteAssetReferences(html:string,baseUrl:string,archiveId:string,assets:CapturedAsset[]):string {
+  baseUrl=documentBase(html,baseUrl);
   const byUrl=new Map(assets.map(asset=>[asset.originalUrl,asset]));
   const resolve=(raw:string|null)=>raw?safeUrl(raw,baseUrl):null;
   return html.replace(/<(img|a)\b[^>]*>/gi,(tag:string,name:string)=>{
@@ -36,6 +43,7 @@ export function rewriteAssetReferences(html:string,baseUrl:string,archiveId:stri
 function srcsetUrls(value:string):string[]{return value.split(",").map(part=>part.trim().split(/\s+/,1)[0]).filter(Boolean);}
 
 export function discoverAssetCandidates(html:string,baseUrl:string,maxAssets=20):AssetCandidate[]{
+  baseUrl=documentBase(html,baseUrl);
   const candidates:AssetCandidate[]=[];const seen=new Set<string>();
   const add=(raw:string,kind:AssetCandidate["kind"])=>{const url=safeUrl(raw,baseUrl);if(url&&!seen.has(url)&&candidates.length<maxAssets){seen.add(url);candidates.push({url,kind});}};
   const tagPattern=/<(img|a)\b[^>]*>/gi;let match:RegExpExecArray|null;

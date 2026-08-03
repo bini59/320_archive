@@ -26,6 +26,6 @@ export function createReadableHtml(bytes: Uint8Array): Uint8Array {
     disallowedTagsMode: "discard",
     enforceHtmlBoundary: true,
     parser: { lowerCaseTags: true },
-  }).replace(/<a>([\s\S]*?)<\/a>/gi,"$1").replace(/<img\s*\/?\s*>/gi,"").trim();
+  }).replace(/<a>([\s\S]*?)<\/a>/gi,"$1").replace(/<img\b(?![^>]*\bsrc=)[^>]*>/gi,"").trim();
   return Buffer.from(`<!doctype html><html><head><meta charset="utf-8"><title>Archived reading view</title></head><body>${content}</body></html>`);
 }

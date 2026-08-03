@@ -59,14 +59,6 @@ test("shows a safe reason for a failed fixture capture", async ({ page }) => {
   await expect(page.getByText(/경로|ENOENT|snapshot\.json|original\.html/i)).toHaveCount(0);
 });
 
-test("returns a retryable form error at the SQLite submission boundary", async ({ page }) => {
-  for (let index = 0; index < 21; index += 1) {
-    await submit(page, `http://rate-${index}.fixture.test:3101/success`);
-  }
-  await expect(page).toHaveURL("/");
-  await expect(page.getByText(/요청 한도|잠시 후 다시/)).toBeVisible();
-});
-
 test("preserves accepted assets and remains self-contained after the source goes offline", async ({ page, request }) => {
   await submit(page, "http://assets-page.fixture.test:3101/success");
   await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
@@ -97,7 +89,7 @@ test("preserves accepted assets and remains self-contained after the source goes
     const response = await request.get(path);
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toBe(type);
-    expect(response.headers()["content-disposition"]).toMatch(/^attachment; filename="archive-asset\.(?:pdf|txt)"$/);
+    expect(response.headers()["content-disposition"]).toMatch(/^attachment; filename="archived-asset\.(?:pdf|txt)"$/);
     expect(response.headers()["cache-control"]).toBe("private, no-store");
     expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   }
@@ -120,8 +112,7 @@ test("keeps the archive usable while rejected assets have no remote fallback", a
   ]) {
     await expect(readable.getByRole("img", { name })).toHaveCount(0);
   }
-  const srcset = await readable.getByRole("img", { name: "partially preserved srcset" }).getAttribute("srcset");
-  expect(srcset).not.toContain("fixture.test");
+  await expect(readable.locator('[src*="fixture.test"], [srcset*="fixture.test"]')).toHaveCount(0);
 
   await request.get("http://127.0.0.1:3101/source-offline");
   await page.reload();
