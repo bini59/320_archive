@@ -48,4 +48,16 @@ export interface ArchiveRepository {
 
 export interface CapturedPage { bytes: Uint8Array; finalUrl: string; contentType: string }
 export interface CaptureClient { capture(url: string, signal?: AbortSignal): Promise<CapturedPage> }
-export interface SnapshotStore { save(archiveId: string, bytes: Uint8Array, snapshot: Snapshot): Promise<void>; cleanup(archiveId: string): Promise<void> }
+export type SnapshotContentKind = "original" | "readable";
+export interface SnapshotContent { kind: SnapshotContentKind; bytes: Uint8Array }
+export class SnapshotContentNotFoundError extends Error {
+  constructor(readonly archiveId: string, readonly kind: SnapshotContentKind) {
+    super(`Snapshot content not found: ${kind}`);
+    this.name = "SnapshotContentNotFoundError";
+  }
+}
+export interface SnapshotStore {
+  save(archiveId: string, original: Uint8Array, readable: Uint8Array, snapshot: Snapshot): Promise<void>;
+  read(archiveId: string, kind: SnapshotContentKind): Promise<SnapshotContent>;
+  cleanup(archiveId: string): Promise<void>;
+}

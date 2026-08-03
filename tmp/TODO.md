@@ -19,10 +19,10 @@ base: main
 ## Group 0: 선행 (정제/저장 계약)
 > 병렬 작업 전 반드시 먼저 완료
 
-- [ ] 스냅샷 저장소에 보존 원문과 정제 읽기본을 저장·조회하는 명시적 API를 추가하고, 조회 결과는 임의 파일 경로가 아닌 허용된 `original | readable` 종류로만 표현한다 (`src/lib/archive/types.ts`)
-- [ ] HTML을 문서로 파싱해 `script`, `style`, `iframe`, `object`, `embed`, `form`, `input`, `button`, `meta`, `base`, `link`, `svg`, 이벤트 핸들러, `style`, `src/srcset/href/action` 등 능동·외부 리소스 표면을 allow-list로 제거하고, 본문 중심의 자체 완결형 HTML을 생성한다. malformed HTML, entity, 빈 본문, 우회성 URL/속성 사례를 안전하게 처리한다 (`src/lib/archive/readable.ts`, `src/lib/archive/readable.test.ts`, `package.json`, `pnpm-lock.yaml`)
-- [ ] `LocalSnapshotStore.save` entrypoint이 `original.html`, `readable.html`, `snapshot.json` 세 파일을 stage 디렉터리에 fsync한 뒤 한 번에 승격하게 하고, UUID 검증·정규화된 root 내부 경로·일반 파일 확인을 거친 읽기 API를 구현한다. 기존 저장분의 `readable.html` 부재는 typed not-found로 구분한다 (`src/lib/archive/storage.ts`, `src/lib/archive/storage.test.ts`)
-- [ ] 캡처 원문에서 metadata와 정제 읽기본을 한 번만 생성해 원자적으로 저장한 후에만 Archive를 `saved`로 전환하고, 정제/저장 실패는 허용 목록의 안전한 `failed` 사유로 귀결시킨다. 상세/Route Handler가 사용할 Archive+content 조회 진입점을 추가한다 (`src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`)
+- [x] 스냅샷 저장소에 보존 원문과 정제 읽기본을 저장·조회하는 명시적 API를 추가하고, 조회 결과는 임의 파일 경로가 아닌 허용된 `original | readable` 종류로만 표현한다 (`src/lib/archive/types.ts`)
+- [x] HTML을 문서로 파싱해 `script`, `style`, `iframe`, `object`, `embed`, `form`, `input`, `button`, `meta`, `base`, `link`, `svg`, 이벤트 핸들러, `style`, `src/srcset/href/action` 등 능동·외부 리소스 표면을 allow-list로 제거하고, 본문 중심의 자체 완결형 HTML을 생성한다. malformed HTML, entity, 빈 본문, 우회성 URL/속성 사례를 안전하게 처리한다 (`src/lib/archive/readable.ts`, `src/lib/archive/readable.test.ts`, `package.json`, `pnpm-lock.yaml`)
+- [x] `LocalSnapshotStore.save` entrypoint이 `original.html`, `readable.html`, `snapshot.json` 세 파일을 stage 디렉터리에 fsync한 뒤 한 번에 승격하게 하고, UUID 검증·정규화된 root 내부 경로·일반 파일 확인을 거친 읽기 API를 구현한다. 기존 저장분의 `readable.html` 부재는 typed not-found로 구분한다 (`src/lib/archive/storage.ts`, `src/lib/archive/storage.test.ts`)
+- [x] 캡처 원문에서 metadata와 정제 읽기본을 한 번만 생성해 원자적으로 저장한 후에만 Archive를 `saved`로 전환하고, 정제/저장 실패는 허용 목록의 안전한 `failed` 사유로 귀결시킨다. 상세/Route Handler가 사용할 Archive+content 조회 진입점을 추가한다 (`src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`)
 
 ## Group 1: 읽기/원문 UI (parallel)
 > worktree: `tmp/worktrees/feature-issue-3-readable-archives-group-1`
