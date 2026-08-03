@@ -42,7 +42,7 @@ export interface ArchiveRepository {
   findById(id: string): Archive | null;
   markSaved(id: string, snapshot: Snapshot): Archive | null;
   markFailed(id: string, code: CaptureFailureCode, message: string): Archive | null;
-  reserveBudget(input: { windowMs: number; maxSubmissions: number; maxStoredBytes: number; reserveBytes: number }): BudgetReservation | null;
+  reserveBudget(input: { windowMs: number; maxSubmissions: number; maxStoredBytes: number; reserveBytes: number; timeoutMs: number }): BudgetReservation | null;
   close(): void;
 }
 

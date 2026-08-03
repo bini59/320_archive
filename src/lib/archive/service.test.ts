@@ -53,6 +53,7 @@ async function fixture(options: {
       maxSubmissions: options.maxSubmissions ?? 10,
       maxStoredBytes: options.maxStoredBytes ?? 10_000,
       reserveBytes: options.reserveBytes ?? 1_000,
+      timeoutMs: 1_000,
     },
   );
   services.push(service);
