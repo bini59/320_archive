@@ -30,7 +30,12 @@ export function isGlobalUnicastAddress(address: string): boolean {
   if (family !== 6) return false; const p = expandV6(address); if (!p) return false;
   if (p.slice(0,5).every(x=>x===0) && (p[5] === 0xffff || p[5] === 0)) return isGlobalUnicastAddress(`${p[6]>>8}.${p[6]&255}.${p[7]>>8}.${p[7]&255}`);
   if (p.every(x=>x===0) || (p.slice(0,7).every(x=>x===0) && p[7]===1)) return false;
-  if ((p[0]&0xfe00)===0xfc00 || (p[0]&0xffc0)===0xfe80 || (p[0]&0xff00)===0xff00 || p[0]===0x2001 && (p[1]===0x0db8 || p[1]===0x0010)) return false;
+  // Only IANA's currently allocated global-unicast 2000::/3 space is eligible.
+  if ((p[0]&0xe000)!==0x2000) return false;
+  if (p[0]===0x2001 && (p[1]===0x0db8 || p[1]===0x0010)) return false;
+  // IPv4-translating prefixes can otherwise tunnel a private IPv4 destination.
+  if (p[0]===0x2002) return isGlobalUnicastAddress(`${p[1]>>8}.${p[1]&255}.${p[2]>>8}.${p[2]&255}`);
+  if (p[0]===0x0064 && p[1]===0xff9b && p.slice(2,6).every(x=>x===0)) return isGlobalUnicastAddress(`${p[6]>>8}.${p[6]&255}.${p[7]>>8}.${p[7]&255}`);
   return true;
 }
 export function parseArchiveUrl(input: string): URL {

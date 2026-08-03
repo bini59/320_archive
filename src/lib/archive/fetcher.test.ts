@@ -7,6 +7,16 @@ const servers:http.Server[]=[];
 afterEach(async()=>Promise.all(servers.splice(0).map(server=>new Promise<void>(resolve=>server.close(()=>resolve())))));
 
 describe("SafeCaptureClient transport seam",()=>{
+  it("times out during DNS and never starts a request after the deadline",async()=>{
+    let connected=false;
+    const client=new SafeCaptureClient({timeoutMs:20,maxBytes:100,maxRedirects:0,
+      resolver:()=>new Promise(resolve=>setTimeout(()=>resolve([{address:"93.184.216.34",family:4}]),80)),
+      connectionAddress:()=>{connected=true;return {address:"127.0.0.1",family:4};},
+    });
+    await expect(client.capture("http://slow.example/")).rejects.toMatchObject({code:"timeout"});
+    await new Promise(resolve=>setTimeout(resolve,100));
+    expect(connected).toBe(false);
+  });
   it("validates the public DNS answer while allowing a separate fixture socket address",async()=>{
     const server=http.createServer((_request,response)=>{response.setHeader("content-type","text/html");response.end("<title>fixture</title>");});
     servers.push(server); await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));

@@ -82,6 +82,9 @@ describe("normalizeArchiveUrl", () => {
 });
 
 describe("capture address policy", () => {
+  it.each(["4000::1", "5fff::1", "2002:0a00:0001::1", "64:ff9b::0a00:1"])("blocks non-global or private-transition IPv6 %s", address => {
+    expect(isGlobalUnicastAddress(address)).toBe(false);
+  });
   it.each(["192.0.2.1", "198.51.100.1", "203.0.113.1", "2001:db8::1"])("blocks documentation address %s", address => {
     expect(isGlobalUnicastAddress(address)).toBe(false);
   });

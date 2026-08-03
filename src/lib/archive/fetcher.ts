@@ -23,10 +23,16 @@ export class SafeCaptureClient {
     finally { clearTimeout(timeout); signal?.removeEventListener("abort",abort); }
   }
   private async follow(input:string, redirects:number, signal:AbortSignal):Promise<CapturedPage> {
-    let resolved; try { resolved=await resolvePublicUrl(input,this.options.resolver??systemResolver); } catch { throw new CaptureError("invalid_url"); }
+    if(signal.aborted) throw signal.reason instanceof CaptureError?signal.reason:new CaptureError("timeout");
+    let resolved; try { resolved=await Promise.race([
+      resolvePublicUrl(input,this.options.resolver??systemResolver),
+      new Promise<never>((_resolve,reject)=>{const abort=()=>reject(signal.reason instanceof CaptureError?signal.reason:new CaptureError("timeout"));if(signal.aborted)abort();else signal.addEventListener("abort",abort,{once:true});}),
+    ]); } catch(error) { if(error instanceof CaptureError)throw error; throw new CaptureError("invalid_url"); }
+    if(signal.aborted) throw signal.reason instanceof CaptureError?signal.reason:new CaptureError("timeout");
     const {url,addresses}=resolved; const validated=addresses[0];
     const chosen=this.options.connectionAddress?.(validated.address,url) ?? validated;
     const response=await new Promise<http.IncomingMessage>((resolve,reject)=>{
+      if(signal.aborted){reject(signal.reason);return;}
       const transport=url.protocol==='https:'?https:http;
       const lookup:http.RequestOptions["lookup"]=(_hostname,options,callback)=>{
         if (typeof options === "object" && options.all) {
