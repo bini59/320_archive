@@ -2,6 +2,13 @@
 
 개인용 웹 아카이브 서비스다. 외부 게시물이 사라지는 상황에 대비해, 보존할 콘텐츠를 저장하고 열람한다.
 
+## Stack
+
+- Next.js 16 / React 19 / TypeScript 7 / pnpm
+- Tailwind CSS v4 + daisyUI v5
+- SQLite via `better-sqlite3`
+- 기존 Docker 환경에 배포하고, 외부 Cloudflare Tunnel이 서비스로 라우팅한다.
+
 ## Development flow
 
 - 작업은 `dev-flow`로 시작한다.
@@ -20,3 +27,9 @@
 
 - 배포 대상은 기존 Docker 환경이며, Cloudflare Tunnel 컨테이너가 애플리케이션으로 라우팅한다.
 - Tunnel ingress/도메인 라우팅은 운영자가 별도로 구성한다. 애플리케이션 초기화 단계에서 임의의 Tunnel 설정이나 배포 자동화는 만들지 않는다.
+
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
