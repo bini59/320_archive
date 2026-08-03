@@ -44,10 +44,10 @@ base: main
 ## Group 2: Docker 운영과 문서 (병렬)
 > worktree: `tmp/worktrees/feature-issue-5-public-library-group-2`
 
-- [ ] Next.js standalone 서버 출력을 활성화하고 현재 TypeScript 설정과 self-hosting 빌드를 유지한다 (`next.config.ts`)
-- [ ] pnpm multi-stage build, production dependency 산출물, 비-root 사용자, `/data` 디렉터리 및 `3000` 포트를 갖는 production 이미지를 추가한다 (`Dockerfile`, `.dockerignore`)
-- [ ] 앱 서비스와 명시적 `/data` named volume, `ARCHIVE_DATABASE_PATH=/data/archive.db`, `ARCHIVE_STORAGE_ROOT=/data/archives`, restart/healthcheck를 정의하고 Tunnel 서비스나 ingress는 포함하지 않는다 (`compose.yaml`)
-- [ ] 로컬 시작, 환경 변수, Docker build/up/down, 볼륨 위치, 앱 정지 기반 전체 `/data` 백업, 빈 볼륨 복구·권한·검증, WAL 파일 주의, 버전 호환성 및 외부 Cloudflare Tunnel 책임을 실행 가능한 명령과 함께 문서화한다 (`README.md`)
+- [x] Next.js standalone 서버 출력을 활성화하고 현재 TypeScript 설정과 self-hosting 빌드를 유지한다 (`next.config.ts`)
+- [x] pnpm multi-stage build, production dependency 산출물, 비-root 사용자, `/data` 디렉터리 및 `3000` 포트를 갖는 production 이미지를 추가한다 (`Dockerfile`, `.dockerignore`)
+- [x] 앱 서비스와 명시적 `/data` named volume, `ARCHIVE_DATABASE_PATH=/data/archive.db`, `ARCHIVE_STORAGE_ROOT=/data/archives`, restart/healthcheck를 정의하고 Tunnel 서비스나 ingress는 포함하지 않는다 (`compose.yaml`)
+- [x] 로컬 시작, 환경 변수, Docker build/up/down, 볼륨 위치, 앱 정지 기반 전체 `/data` 백업, 빈 볼륨 복구·권한·검증, WAL 파일 주의, 버전 호환성 및 외부 Cloudflare Tunnel 책임을 실행 가능한 명령과 함께 문서화한다 (`README.md`)
 
 ## Integration
 
