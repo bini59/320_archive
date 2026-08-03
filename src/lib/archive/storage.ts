@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { lstat, mkdir, open, realpath, rename, rm } from "node:fs/promises";
+import { constants } from "node:fs";
+import { mkdir, open, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import type { Snapshot, SnapshotContent, SnapshotContentKind, SnapshotStore } from "./types";
 import { SnapshotContentNotFoundError } from "./types";
@@ -35,12 +36,16 @@ export class LocalSnapshotStore implements SnapshotStore {
   async read(id: string, kind: SnapshotContentKind): Promise<SnapshotContent> {
     this.validateId(id);
     const root = await realpath(this.archiveRoot).catch(() => { throw new SnapshotContentNotFoundError(id, kind); });
-    const target = this.inside(root, path.join(id, FILE_NAMES[kind]));
     try {
-      const stat = await lstat(target);
-      if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("not a regular file");
-      const handle = await open(target, "r");
-      try { return { kind, bytes: await handle.readFile() }; } finally { await handle.close(); }
+      const archiveDir = await realpath(this.inside(root, id));
+      if (path.dirname(archiveDir) !== root) throw new Error("archive directory escaped root");
+      const target = this.inside(archiveDir, FILE_NAMES[kind]);
+      const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        const stat = await handle.stat();
+        if (!stat.isFile()) throw new Error("not a regular file");
+        return { kind, bytes: await handle.readFile() };
+      } finally { await handle.close(); }
     } catch {
       throw new SnapshotContentNotFoundError(id, kind);
     }

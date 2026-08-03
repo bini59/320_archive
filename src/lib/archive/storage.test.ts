@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -32,6 +32,15 @@ describe("LocalSnapshotStore", () => {
     await expect(store.read("../outside", "original")).rejects.toBeInstanceOf(TypeError);
     await mkdir(path.join(root, id));
     await symlink("/etc/passwd", path.join(root, id, "original.html"));
+    await expect(store.read(id, "original")).rejects.toBeInstanceOf(SnapshotContentNotFoundError);
+  });
+
+  it("rejects a symbolic archive directory that escapes the canonical root", async () => {
+    const { root, store } = await fixture();
+    const outside = await mkdtemp(path.join(os.tmpdir(), "snapshot-outside-"));
+    roots.push(outside);
+    await writeFile(path.join(outside, "original.html"), "outside secret");
+    await symlink(outside, path.join(root, id));
     await expect(store.read(id, "original")).rejects.toBeInstanceOf(SnapshotContentNotFoundError);
   });
 });
