@@ -1,3 +1,11 @@
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+dangerouslyAllowAllBuilds: true
+
+overrides:
+  next>postcss: 8.5.25
+  next>sharp: 0.35.0
+
+# These exact, lockfile-pinned releases were reviewed when the image was added.
+# Keep pnpm's release-age protection enabled for every other dependency.
+minimumReleaseAgeExclude:
+  - baseline-browser-mapping@2.11.11
+  - daisyui@5.7.14

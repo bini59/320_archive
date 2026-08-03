@@ -62,4 +62,69 @@ pnpm build
 
 ## Deployment
 
-기존 Docker 환경으로 배포합니다. Cloudflare Tunnel과 도메인 ingress 라우팅은 이 저장소 외부에서 운영자가 구성합니다.
+프로덕션 이미지는 Next.js standalone 서버를 비-root 사용자(UID/GID `1001`)로 실행합니다. SQLite 데이터베이스와 저장 파일은 named volume의 `/data` 아래에 함께 보관됩니다.
+
+```bash
+docker compose build
+docker compose up -d
+docker compose ps
+```
+
+서비스는 호스트의 `3000` 포트를 사용합니다. 로그와 상태를 확인하고 종료할 수 있습니다.
+
+```bash
+docker compose logs -f app
+docker compose down
+```
+
+`docker compose down`은 컨테이너와 네트워크만 제거하며 `320_archive_data` named volume은 유지합니다. 데이터를 지우는 `docker compose down --volumes`는 백업을 확인한 뒤에만 사용해야 합니다. 호스트상의 실제 volume 위치가 필요하면 다음 명령으로 확인합니다.
+
+```bash
+docker volume inspect 320_archive_data
+```
+
+이미지는 기본적으로 다음 경로를 사용합니다. compose 환경 변수나 별도 실행 환경에서도 두 경로를 동일한 영속 volume 안에 두어야 합니다.
+
+| 환경 변수 | 컨테이너 값 |
+| --- | --- |
+| `ARCHIVE_DATABASE_PATH` | `/data/archive.db` |
+| `ARCHIVE_STORAGE_ROOT` | `/data/archives` |
+
+### Backup
+
+SQLite는 WAL 파일을 사용할 수 있고 DB와 아카이브 파일이 함께 일관된 시점에 보존되어야 합니다. 실행 중인 DB 파일만 복사하지 말고, 앱을 중지한 뒤 `/data` volume 전체를 하나의 tar 파일로 백업합니다.
+
+```bash
+mkdir -p backups
+docker compose stop app
+docker run --rm \
+  -v 320_archive_data:/data:ro \
+  -v "$PWD/backups:/backup" \
+  alpine:3.22 tar -C /data -czf /backup/320-archive-data.tar.gz .
+docker compose start app
+```
+
+백업 파일이 생성됐는지 확인합니다.
+
+```bash
+tar -tzf backups/320-archive-data.tar.gz | head
+docker compose ps
+```
+
+### Restore
+
+복구 대상 앱을 중지하고 **비어 있는 새 volume**에 전체 백업을 풉니다. 아래 명령은 기존 운영 volume을 덮어쓰지 않으므로 복구 내용을 먼저 검증할 수 있습니다.
+
+```bash
+docker compose stop app
+docker volume create 320_archive_restore
+docker run --rm \
+  -v 320_archive_restore:/data \
+  -v "$PWD/backups:/backup:ro" \
+  alpine:3.22 sh -c 'test -z "$(ls -A /data)" && tar -C /data -xzf /backup/320-archive-data.tar.gz && chown -R 1001:1001 /data'
+docker run --rm -v 320_archive_restore:/data:ro alpine:3.22 ls -la /data
+```
+
+검증 후 `compose.yaml`의 volume 이름을 일시적으로 `320_archive_restore`로 바꾸거나, 동일 구성을 가리키는 compose override를 사용하여 앱을 시작합니다. `docker compose up -d` 후 health 상태, 아카이브 목록과 상세 페이지를 확인합니다. 복구 이미지/애플리케이션 버전은 백업을 만든 버전과 같거나 해당 데이터베이스 migration과 호환되는 버전을 사용하세요. 운영 volume을 교체하기 전 원본 volume도 별도로 보존하는 것을 권장합니다.
+
+Cloudflare Tunnel 컨테이너, 공개 도메인의 ingress, TLS 및 엣지 rate limit은 기존 운영 환경의 책임입니다. 이 저장소의 compose 파일은 Tunnel을 만들거나 설정하지 않으며, 운영자가 Tunnel에서 `app:3000` 또는 호스트의 공개 포트로 별도 라우팅해야 합니다.
