@@ -18,7 +18,7 @@ export function ArchiveForm() {
         보관할 URL
       </label>
       <p className="mb-2 text-sm text-base-content/65" id="archive-url-description">
-        공개된 HTTP 또는 HTTPS 주소를 입력하세요.
+        공개된 HTTP 또는 HTTPS 주소를 입력하세요. 캡처에는 최대 10초가 걸릴 수 있습니다.
       </p>
       <div className="join w-full">
         <input
@@ -26,13 +26,14 @@ export function ArchiveForm() {
           aria-invalid={state.error ? true : undefined}
           className="input input-bordered join-item min-w-0 flex-1"
           id="archive-url"
+          maxLength={8192}
           name="url"
           placeholder="https://example.com/article"
           required
           type="url"
         />
         <button className="btn btn-primary join-item" disabled={pending} type="submit">
-          {pending ? "저장 중…" : "아카이브 추가"}
+          {pending ? "캡처 중…" : "아카이브 추가"}
         </button>
       </div>
       <p
