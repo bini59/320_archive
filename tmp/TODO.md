@@ -36,10 +36,10 @@ base: main
 ## Group 1: 공개 라이브러리와 제출 UX (병렬)
 > worktree: `tmp/worktrees/feature-issue-5-public-library-group-1`
 
-- [ ] 제출 폼에 선택적 쉼표 구분 태그 입력, 도움말, 길이 제한 및 접근 가능한 오류 연결을 추가한다 (`src/app/archive-form.tsx`)
-- [ ] Server Action에서 태그를 검증해 서비스로 전달하고 태그 오류는 안전한 폼 상태로 반환하며 기존 URL/캡처 오류 흐름을 유지한다 (`src/app/actions.ts`, `src/app/archive-form-state.ts`, `src/app/archive-form-state.test.ts`)
-- [ ] `/archives` Server Component에서 Next.js 16의 async `searchParams`를 파싱하고 서버에서 목록을 조회해 검색 폼, 선택 필터, 태그 browse, 결과/빈 상태, 안정 링크, 이전·다음 페이지 URL을 렌더링한다 (`src/app/archives/page.tsx`)
-- [ ] 홈 화면에 공개 라이브러리 진입 링크를 추가하고 기존 제출 중심 랜딩 동작을 보존한다 (`src/app/page.tsx`)
+- [x] 제출 폼에 선택적 쉼표 구분 태그 입력, 도움말, 길이 제한 및 접근 가능한 오류 연결을 추가한다 (`src/app/archive-form.tsx`)
+- [x] Server Action에서 태그를 검증해 서비스로 전달하고 태그 오류는 안전한 폼 상태로 반환하며 기존 URL/캡처 오류 흐름을 유지한다 (`src/app/actions.ts`, `src/app/archive-form-state.ts`, `src/app/archive-form-state.test.ts`)
+- [x] `/archives` Server Component에서 Next.js 16의 async `searchParams`를 파싱하고 서버에서 목록을 조회해 검색 폼, 선택 필터, 태그 browse, 결과/빈 상태, 안정 링크, 이전·다음 페이지 URL을 렌더링한다 (`src/app/archives/page.tsx`)
+- [x] 홈 화면에 공개 라이브러리 진입 링크를 추가하고 기존 제출 중심 랜딩 동작을 보존한다 (`src/app/page.tsx`)
 
 ## Group 2: Docker 운영과 문서 (병렬)
 > worktree: `tmp/worktrees/feature-issue-5-public-library-group-2`
