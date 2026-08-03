@@ -27,10 +27,10 @@ base: main
 ## Group 1: 읽기/원문 UI (parallel)
 > worktree: `tmp/worktrees/feature-issue-3-readable-archives-group-1`
 
-- [ ] saved 상세를 출처 헤더와 `읽기 | 원문` 탭으로 구성하고, 기본 읽기 탭에 정제 HTML을 가독성 있는 typography/container로 렌더링한다. 원본 URL은 provenance 문자열로 유지하되 캡처 열람 흐름에서 소스 탐색을 유발하는 클릭 링크로 두지 않는다 (`src/app/archives/[id]/page.tsx`, `src/app/archives/[id]/archive-viewer.tsx`)
-- [ ] 원문 탭은 전용 same-origin content endpoint를 `sandbox` 속성에 allow token이 없는 iframe으로 표시하며, 정제 HTML을 React tree에 주입하는 경우에도 캡처 시 sanitizer 계약을 반드시 전제한 신뢰 경계를 코드에 명시한다. 키보드 탭 전환·선택 상태·iframe 제목을 제공한다 (`src/app/archives/[id]/archive-viewer.tsx`)
-- [ ] 상세 ID와 `saved`+스냅샷 상태를 서버에서 다시 검증한 후에만 저장 content를 반환하는 Route Handler를 추가한다. 원문 Response에 `Content-Type: text/html`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`, `Cache-Control`, `Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox` 및 파일과 함께 저장되지 않은 고정 CSP 방어를 적용하고, pending/failed/missing/invalid ID는 content를 노출하지 않는다 (`src/app/archives/[id]/original/route.ts`)
-- [ ] failed 상세는 탭/iframe/본문을 렌더링하지 않고 저장된 allow-list 실패 문구와 출처·상태만 표시하며, pending과 예전 saved 스냅샷은 파일 부재 시 깨진 UI 대신 안전한 fallback을 표시한다 (`src/app/archives/[id]/page.tsx`)
+- [x] saved 상세를 출처 헤더와 `읽기 | 원문` 탭으로 구성하고, 기본 읽기 탭에 정제 HTML을 가독성 있는 typography/container로 렌더링한다. 원본 URL은 provenance 문자열로 유지하되 캡처 열람 흐름에서 소스 탐색을 유발하는 클릭 링크로 두지 않는다 (`src/app/archives/[id]/page.tsx`, `src/app/archives/[id]/archive-viewer.tsx`)
+- [x] 원문 탭은 전용 same-origin content endpoint를 `sandbox` 속성에 allow token이 없는 iframe으로 표시하며, 정제 HTML을 React tree에 주입하는 경우에도 캡처 시 sanitizer 계약을 반드시 전제한 신뢰 경계를 코드에 명시한다. 키보드 탭 전환·선택 상태·iframe 제목을 제공한다 (`src/app/archives/[id]/archive-viewer.tsx`)
+- [x] 상세 ID와 `saved`+스냅샷 상태를 서버에서 다시 검증한 후에만 저장 content를 반환하는 Route Handler를 추가한다. 원문 Response에 `Content-Type: text/html`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`, `Cache-Control`, `Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; sandbox` 및 파일과 함께 저장되지 않은 고정 CSP 방어를 적용하고, pending/failed/missing/invalid ID는 content를 노출하지 않는다 (`src/app/archives/[id]/original/route.ts`)
+- [x] failed 상세는 탭/iframe/본문을 렌더링하지 않고 저장된 allow-list 실패 문구와 출처·상태만 표시하며, pending과 예전 saved 스냅샷은 파일 부재 시 깨진 UI 대신 안전한 fallback을 표시한다 (`src/app/archives/[id]/page.tsx`)
 
 ## Group 2: 자동화/보안 회귀 (parallel)
 > worktree: `tmp/worktrees/feature-issue-3-readable-archives-group-2`
