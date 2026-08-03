@@ -156,6 +156,7 @@ tag를 기록하고 앱을 중지한 뒤 `320_archive_data` 전체를
 `backups/320-archive-data-<UTC timestamp>.tar.gz`로 백업합니다. 이후 지정된 SHA 이미지를
 기동해 Docker healthcheck가 healthy가 될 때까지 기다리고, pull/start/readiness 실패 시 이전
 이미지로 되돌립니다. 백업 실패 시에도 기존 앱을 다시 시작합니다. runner에서 수동 검증할 때는:
+기본적으로 최신 백업 10개를 보존하며 `BACKUP_RETENTION_COUNT`로 개수를 조정할 수 있습니다.
 
 ```bash
 scripts/deploy.sh ghcr.io/bini59/320_archive:sha-<40-character-commit-sha>
