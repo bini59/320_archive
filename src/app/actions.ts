@@ -17,7 +17,7 @@ export async function createArchiveAction(
   const value = formData.get("url");
   const tags = formData.get("tags");
   if (typeof value !== "string" || value.trim() === "") {
-    return { error: "보관할 URL을 입력해 주세요." };
+    return { error: "보관할 URL을 입력해 주세요.", tagError: null };
   }
   if (typeof tags !== "string") return formErrorForInvalidTags();
 
@@ -29,7 +29,7 @@ export async function createArchiveAction(
     archiveId = result.archive.id;
   } catch (error) {
     if (error instanceof ArchiveUrlError) {
-      return { error: error.message };
+      return { error: error.message, tagError: null };
     }
     if (error instanceof TagValidationError) return formErrorForInvalidTags(error.message);
     throw error;
