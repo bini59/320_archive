@@ -41,7 +41,7 @@ export default defineConfig({
       ARCHIVE_STORAGE_MAX_BYTES: "10485760",
       ARCHIVE_ASSET_MAX_BYTES: "1024",
       ARCHIVE_ASSET_TOTAL_MAX_BYTES: "8192",
-      ARCHIVE_ASSET_TIMEOUT_MS: "250",
+      ARCHIVE_ASSET_TIMEOUT_MS: "3000",
     },
   }],
 });
