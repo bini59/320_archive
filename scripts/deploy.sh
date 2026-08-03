@@ -58,8 +58,11 @@ trap on_exit EXIT HUP INT TERM
 mkdir -p "$BACKUP_DIR"
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 backup_path=$BACKUP_DIR/320-archive-data-$timestamp.tar.gz
-docker compose -f "$COMPOSE_FILE" stop app
 stopped=1
+if ! docker compose -f "$COMPOSE_FILE" stop app; then
+  recover "application stop failed" || true
+  exit 1
+fi
 
 if ! docker run --rm -v "$VOLUME_NAME:/data:ro" -v "$BACKUP_DIR:/backup" alpine:3.22 \
   tar -C /data -czf "/backup/$(basename "$backup_path")" .; then
@@ -68,8 +71,8 @@ if ! docker run --rm -v "$VOLUME_NAME:/data:ro" -v "$BACKUP_DIR:/backup" alpine:
   exit 1
 fi
 
-find "$BACKUP_DIR" -maxdepth 1 -type f -name '320-archive-data-*.tar.gz' -printf '%T@ %p\n' | sort -rn | \
-  awk -v keep="$BACKUP_RETENTION_COUNT" 'NR > keep {$1=""; sub(/^ /, ""); print}' | while IFS= read -r old; do rm -f -- "$old"; done
+find "$BACKUP_DIR" -type f -name '320-archive-data-*.tar.gz' -print | sort -r | \
+  awk -v keep="$BACKUP_RETENTION_COUNT" 'NR > keep' | while IFS= read -r old; do rm -f -- "$old"; done
 
 if ! ARCHIVE_IMAGE=$IMAGE docker compose -f "$COMPOSE_FILE" pull app || ! ARCHIVE_IMAGE=$IMAGE docker compose -f "$COMPOSE_FILE" up -d --no-deps app; then
   recover "deployment failed" || true

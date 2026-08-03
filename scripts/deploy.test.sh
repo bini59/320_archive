@@ -25,6 +25,7 @@ case "$*" in
     else echo healthy; fi
     ;;
   "run --rm "*"tar "*) test "${FAIL_BACKUP:-0}" != 1 ;;
+  "compose -f "*" stop app") test "${FAIL_STOP:-0}" != 1 ;;
 esac
 FAKE
 chmod +x "$TMP/bin/docker"
@@ -63,6 +64,10 @@ grep -F "ROLLBACK FAILED" "$TMP/error" >/dev/null || fail "rollback health failu
 if FAIL_BACKUP=1 "$ROOT/scripts/deploy.sh" "$IMAGE" 2>"$TMP/error"; then fail "failed backup succeeded"; fi
 grep -F "ARCHIVE_IMAGE=ghcr.io/bini59/320_archive:sha-old" "$TMP/docker.log" >/dev/null || fail "backup failure did not recover previous app"
 test -z "$(find "$TMP/backups" -name '320-archive-data-*.tar.gz' -print -quit)" || fail "failed backup left a partial archive"
+
+: >"$TMP/docker.log"; rm -f "$TMP/health-count"
+if FAIL_STOP=1 "$ROOT/scripts/deploy.sh" "$IMAGE" 2>"$TMP/error"; then fail "failed stop succeeded"; fi
+grep -F "ARCHIVE_IMAGE=ghcr.io/bini59/320_archive:sha-old" "$TMP/docker.log" >/dev/null || fail "stop failure did not recover previous app"
 
 touch "$TMP/backups/320-archive-data-20200101T000000Z.tar.gz" "$TMP/backups/320-archive-data-20200102T000000Z.tar.gz" "$TMP/backups/320-archive-data-20200103T000000Z.tar.gz"
 FORCE_UNHEALTHY=0 "$ROOT/scripts/deploy.sh" "$IMAGE" >/dev/null
