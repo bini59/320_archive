@@ -62,6 +62,7 @@ grep -F "ROLLBACK FAILED" "$TMP/error" >/dev/null || fail "rollback health failu
 : >"$TMP/docker.log"; rm -f "$TMP/health-count"
 if FAIL_BACKUP=1 "$ROOT/scripts/deploy.sh" "$IMAGE" 2>"$TMP/error"; then fail "failed backup succeeded"; fi
 grep -F "ARCHIVE_IMAGE=ghcr.io/bini59/320_archive:sha-old" "$TMP/docker.log" >/dev/null || fail "backup failure did not recover previous app"
+test -z "$(find "$TMP/backups" -name '320-archive-data-*.tar.gz' -print -quit)" || fail "failed backup left a partial archive"
 
 touch "$TMP/backups/320-archive-data-20200101T000000Z.tar.gz" "$TMP/backups/320-archive-data-20200102T000000Z.tar.gz" "$TMP/backups/320-archive-data-20200103T000000Z.tar.gz"
 FORCE_UNHEALTHY=0 "$ROOT/scripts/deploy.sh" "$IMAGE" >/dev/null

@@ -50,7 +50,7 @@ on_exit() {
   status=$?
   trap - EXIT HUP INT TERM
   if test "$completed" != 1 && test "$stopped" = 1; then recover "deployment interrupted" || status=1; fi
-  test -z "$backup_path" || test -f "$backup_path" || rm -f "$backup_path" 2>/dev/null || true
+  if test "$completed" != 1 && test -n "$backup_path"; then rm -f "$backup_path" 2>/dev/null || true; fi
   exit "$status"
 }
 trap on_exit EXIT HUP INT TERM
