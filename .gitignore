@@ -1,6 +1,5 @@
 # Local Codex/project workflow files
-.claude/
-CLAUDE.md
+.codex/
 CONTEXT.md
 graphify-out/
 tmp/
