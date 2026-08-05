@@ -58,7 +58,27 @@ pnpm build
 
 성공한 아카이브는 `<archive-root>/<uuid>/original.html`에 받은 원문 바이트를, `snapshot.json`에 제목·설명·최종 URL·캡처 시각·바이트 수를 저장합니다. 두 파일을 동기화하고 승격한 뒤에만 SQLite 상태를 `saved`로 바꿉니다. 실패한 아카이브에는 네트워크 주소나 내부 예외 대신 허용 목록의 안전한 사유만 공개합니다.
 
-인증 없는 공개 endpoint이므로 애플리케이션은 프로세스별 동시 캡처 제한과 SQLite 기반 전역 rolling-window 제출 한도·전체 저장 byte quota를 기본 적용합니다. 이 경계는 여러 앱 프로세스의 모든 요청을 합산하는 기본 안전장치이며 사용자별 한도는 아닙니다. 운영 환경에서는 Cloudflare rate limiting을 IP별 추가 방어로 적용할 수 있지만, 애플리케이션 내부 제한을 대체하지는 않습니다.
+공개 등록 경로에는 애플리케이션의 프로세스별 동시 캡처 제한과 SQLite 기반 전역 rolling-window 제출 한도·전체 저장 byte quota를 기본 적용합니다. 이 경계는 여러 앱 프로세스의 모든 요청을 합산하는 기본 안전장치이며 사용자별 한도는 아닙니다. 운영 환경에서는 Cloudflare rate limiting을 IP별 추가 방어로 적용할 수 있지만, 애플리케이션 내부 제한을 대체하지는 않습니다.
+
+## Authentication
+
+공개 아카이브 열람(`/archives`)은 인증 없이 사용할 수 있지만, 새 아카이브 등록은 `321_auth`의 공유 `sid` 세션과 `/verify` 서버 간 검증을 통과해야 합니다. 미인증 사용자는 중앙 로그인으로 이동하고, auth 장애는 등록을 허용하지 않고 `503`으로 처리합니다. `APP_SECRET`은 브라우저에 전달되지 않습니다.
+
+서비스 연동 전에 `321_auth` 운영 DB에 `archive` client를 등록하고, 앱 실행 환경에 다음 변수를 주입합니다.
+
+```bash
+AUTH_ORIGIN=https://auth.bini59.dev
+CLIENT_ID=archive
+APP_SECRET=<archive client 전용 secret>
+```
+
+두 저장소가 같은 호스트에 있고 `321_auth` auth-app 컨테이너가 실행 중이면 다음 명령이 강한 키 생성, 로컬 `.env`와 production runner env 저장, auth DB client 등록을 한 번에 처리합니다. 기존 `.env`의 `APP_SECRET`이 있으면 재사용합니다.
+
+```bash
+pnpm setup:auth
+```
+
+기본 등록 origin은 `https://archive.bini59.dev`이며, 다른 환경에서는 `ARCHIVE_ORIGIN`, `AUTH_ROOT`, `AUTH_COMPOSE_FILE`, `PRODUCTION_ENV_FILE`로 변경할 수 있습니다. CI production 배포는 `/home/ubuntu/actions-runner-320/.env`를 Compose env 파일로 사용합니다. 로컬 E2E 테스트만 `ARCHIVE_E2E=1`로 인증을 격리해 우회합니다.
 
 ## Deployment
 

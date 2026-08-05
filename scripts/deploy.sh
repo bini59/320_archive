@@ -3,12 +3,25 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 COMPOSE_FILE=${COMPOSE_FILE:-$ROOT/compose.yaml}
+COMPOSE_ENV_FILE=${COMPOSE_ENV_FILE:-}
 BACKUP_DIR=${BACKUP_DIR:-$ROOT/backups}
 VOLUME_NAME=${VOLUME_NAME:-320_archive_data}
 READINESS_TIMEOUT_SECONDS=${READINESS_TIMEOUT_SECONDS:-120}
 READINESS_INTERVAL_SECONDS=${READINESS_INTERVAL_SECONDS:-2}
 BACKUP_RETENTION_COUNT=${BACKUP_RETENTION_COUNT:-10}
 IMAGE=${1:-}
+
+compose() {
+  if test -n "$COMPOSE_ENV_FILE"; then
+    test -f "$COMPOSE_ENV_FILE" || {
+      echo "compose env file not found: $COMPOSE_ENV_FILE" >&2
+      return 1
+    }
+    docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  else
+    docker compose -f "$COMPOSE_FILE" "$@"
+  fi
+}
 
 case "$IMAGE" in *:sha-*) ;; *) echo "usage: $0 <registry/image:sha-<40 hex>> (immutable sha-<40 hex> tag required)" >&2; exit 2;; esac
 sha=${IMAGE##*:sha-}
@@ -17,7 +30,7 @@ case "$sha" in *[!0-9a-f]*) echo "immutable sha-<40 hex> tag required" >&2; exit
 case "$BACKUP_RETENTION_COUNT" in ''|*[!0-9]*) echo "BACKUP_RETENTION_COUNT must be a positive integer" >&2; exit 2;; esac
 test "$BACKUP_RETENTION_COUNT" -gt 0 || { echo "BACKUP_RETENTION_COUNT must be positive" >&2; exit 2; }
 
-container_id=$(docker compose -f "$COMPOSE_FILE" ps -q app)
+container_id=$(compose ps -q app)
 previous_image=$(test -n "$container_id" && docker inspect --format '{{.Config.Image}}' "$container_id" 2>/dev/null || true)
 stopped=0
 completed=0
@@ -27,7 +40,7 @@ backup_complete=0
 wait_healthy() {
   deadline=$(( $(date +%s) + READINESS_TIMEOUT_SECONDS ))
   while test "$(date +%s)" -le "$deadline"; do
-    current_id=$(docker compose -f "$COMPOSE_FILE" ps -q app 2>/dev/null || true)
+    current_id=$(compose ps -q app 2>/dev/null || true)
     status=$(test -n "$current_id" && docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$current_id" 2>/dev/null || true)
     test "$status" = healthy && return 0
     sleep "$READINESS_INTERVAL_SECONDS"
@@ -38,7 +51,7 @@ wait_healthy() {
 recover() {
   reason=$1
   test "$stopped" = 1 || return 0
-  if test -n "$previous_image" && ARCHIVE_IMAGE=$previous_image docker compose -f "$COMPOSE_FILE" up -d --no-deps app && (export ARCHIVE_IMAGE="$previous_image"; wait_healthy); then
+  if test -n "$previous_image" && ARCHIVE_IMAGE=$previous_image compose up -d --no-deps app && (export ARCHIVE_IMAGE="$previous_image"; wait_healthy); then
     stopped=0
     echo "$reason; rollback succeeded: $previous_image" >&2
     return 0
@@ -60,7 +73,7 @@ mkdir -p "$BACKUP_DIR"
 timestamp=$(date -u +%Y%m%dT%H%M%SZ)
 backup_path=$BACKUP_DIR/320-archive-data-$timestamp.tar.gz
 stopped=1
-if ! docker compose -f "$COMPOSE_FILE" stop app; then
+if ! compose stop app; then
   recover "application stop failed" || true
   exit 1
 fi
@@ -76,7 +89,7 @@ backup_complete=1
 find "$BACKUP_DIR" -type f -name '320-archive-data-*.tar.gz' -print | sort -r | \
   awk -v keep="$BACKUP_RETENTION_COUNT" 'NR > keep' | while IFS= read -r old; do rm -f -- "$old"; done
 
-if ! ARCHIVE_IMAGE=$IMAGE docker compose -f "$COMPOSE_FILE" pull app || ! ARCHIVE_IMAGE=$IMAGE docker compose -f "$COMPOSE_FILE" up -d --no-deps app; then
+if ! ARCHIVE_IMAGE=$IMAGE compose pull app || ! ARCHIVE_IMAGE=$IMAGE compose up -d --no-deps app; then
   recover "deployment failed" || true
   exit 1
 fi

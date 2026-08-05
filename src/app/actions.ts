@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { requireAuthenticatedSession } from "@/lib/auth";
 import { getArchiveService } from "@/lib/archive/service";
 import { ArchiveUrlError } from "@/lib/archive/url";
 import { TagValidationError } from "@/lib/archive/tags";
@@ -14,6 +15,7 @@ export async function createArchiveAction(
   _previousState: ArchiveFormState,
   formData: FormData,
 ): Promise<ArchiveFormState> {
+  await requireAuthenticatedSession();
   const value = formData.get("url");
   const tags = formData.get("tags");
   if (typeof value !== "string" || value.trim() === "") {

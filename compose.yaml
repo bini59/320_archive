@@ -9,6 +9,9 @@ services:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: "3000"
+      AUTH_ORIGIN: ${AUTH_ORIGIN:-https://auth.bini59.dev}
+      CLIENT_ID: ${CLIENT_ID:-archive}
+      APP_SECRET: ${APP_SECRET:-}
     expose:
       - "3000"
     restart: unless-stopped

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "setup:auth": "sh scripts/setup-auth.sh"
   },
   "dependencies": {
     "daisyui": "5.7.14",
