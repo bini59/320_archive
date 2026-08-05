@@ -63,6 +63,7 @@ fi
 upsert_env AUTH_ORIGIN "$AUTH_ORIGIN" "$staged_env"
 upsert_env CLIENT_ID "$CLIENT_ID" "$staged_env"
 upsert_env APP_SECRET "$APP_SECRET" "$staged_env"
+upsert_env APP_ORIGIN "$ARCHIVE_ORIGIN" "$staged_env"
 
 if test "$PRODUCTION_ENV_FILE" != "$ARCHIVE_ENV_FILE" && test -f "$PRODUCTION_ENV_FILE"; then
   staged_production_env=$(mktemp "$(dirname -- "$PRODUCTION_ENV_FILE")/.env.auth.XXXXXX")
@@ -70,6 +71,7 @@ if test "$PRODUCTION_ENV_FILE" != "$ARCHIVE_ENV_FILE" && test -f "$PRODUCTION_EN
   upsert_env AUTH_ORIGIN "$AUTH_ORIGIN" "$staged_production_env"
   upsert_env CLIENT_ID "$CLIENT_ID" "$staged_production_env"
   upsert_env APP_SECRET "$APP_SECRET" "$staged_production_env"
+  upsert_env APP_ORIGIN "$ARCHIVE_ORIGIN" "$staged_production_env"
 fi
 
 # seed-client stores only a hash in auth DB; the plaintext secret stays in the

@@ -16,7 +16,8 @@ export async function proxy(request: NextRequest) {
     const identity = await verifySession(sid);
     if (identity?.membership?.status === "active") return NextResponse.next();
 
-    const response = NextResponse.redirect(loginUrl(new URL("/", request.url).toString()));
+    const appOrigin = process.env.APP_ORIGIN?.replace(/\/$/, "") ?? new URL(request.url).origin;
+    const response = NextResponse.redirect(loginUrl(`${appOrigin}/`));
     if (sid) response.cookies.delete({ name: "sid", path: "/" });
     return response;
   } catch (error) {

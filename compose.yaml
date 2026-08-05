@@ -12,6 +12,7 @@ services:
       AUTH_ORIGIN: ${AUTH_ORIGIN:-https://auth.bini59.dev}
       CLIENT_ID: ${CLIENT_ID:-archive}
       APP_SECRET: ${APP_SECRET:-}
+      APP_ORIGIN: ${APP_ORIGIN:-https://archive.bini59.dev}
     expose:
       - "3000"
     restart: unless-stopped

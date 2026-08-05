@@ -70,7 +70,8 @@ export async function requireAuthenticatedSession() {
     const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
     const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
     if (!host) throw new AuthUnavailableError("request host is unavailable");
-    redirect(loginUrl(`${protocol}://${host}/`).toString());
+    const appOrigin = process.env.APP_ORIGIN?.replace(/\/$/, "") ?? `${protocol}://${host}`;
+    redirect(loginUrl(`${appOrigin}/`).toString());
   }
   return identity;
 }

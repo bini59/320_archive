@@ -70,6 +70,7 @@ pnpm build
 AUTH_ORIGIN=https://auth.bini59.dev
 CLIENT_ID=archive
 APP_SECRET=<archive client 전용 secret>
+APP_ORIGIN=https://archive.bini59.dev
 ```
 
 두 저장소가 같은 호스트에 있고 `321_auth` auth-app 컨테이너가 실행 중이면 다음 명령이 강한 키 생성, 로컬 `.env`와 production runner env 저장, auth DB client 등록을 한 번에 처리합니다. 기존 `.env`의 `APP_SECRET`이 있으면 재사용합니다.
