@@ -97,6 +97,34 @@ describe("ArchiveService synchronous capture", () => {
     expect(JSON.parse(await readFile(path.join(archiveRoot, result.archive.id, "snapshot.json"), "utf8"))).toEqual(result.archive.snapshot);
   });
 
+  it("persists a rendered snapshot and its CSS resources as part of the archive", async () => {
+    const capture = new StubCapture({
+      bytes: Buffer.from('<html><body><img alt="captured" src="/image.png">original</body></html>'),
+      contentType: "text/html",
+      finalUrl: "https://example.com/final",
+      rendered: Buffer.from("<html><head><link rel=stylesheet href=local.css></head><body>hydrated</body></html>"),
+      renderedAssets: [{
+        originalUrl: "https://example.com/local.css",
+        finalUrl: "https://example.com/local.css",
+        mimeType: "text/css",
+        bytes: Buffer.from("body{color:red}"),
+      }, {
+        originalUrl: "https://example.com/image.png",
+        finalUrl: "https://example.com/image.png",
+        mimeType: "image/png",
+        bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      }],
+    });
+    const { archiveRoot, service } = await fixture({ capture, maxStoredBytes: 10_000, reserveBytes: 2_000 });
+
+    const result = await service.create("https://example.com/rendered");
+
+    expect(result.archive.status).toBe("saved");
+    expect(await readFile(path.join(archiveRoot, result.archive.id, "rendered.html"), "utf8")).toContain("hydrated");
+    expect(await readFile(path.join(archiveRoot, result.archive.id, "readable.html"), "utf8")).toMatch(new RegExp(`/archives/${result.archive.id}/assets/[a-f0-9]{64}\\.png`));
+    expect(JSON.parse(await readFile(path.join(archiveRoot, result.archive.id, "assets.json"), "utf8")).assets).toHaveLength(2);
+  });
+
   it("does not expose content for pending or failed archives", async () => {
     const { service } = await fixture({ capture: new StubCapture(new CaptureError("timeout")) });
     const failed = await service.create("https://example.com/fail");

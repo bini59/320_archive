@@ -7,6 +7,7 @@ const onePixelPng = Buffer.from(
 );
 const pdf = Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n");
 const text = Buffer.from("Archived fixture attachment.\n");
+const font = Buffer.from("wOF2\0\0\0\0fixture-font", "binary");
 const assetHosts = new Set(["assets.fixture.test", "redirect.fixture.test"]);
 
 let unexpectedRequests = [];
@@ -23,9 +24,11 @@ function successPage() {
       <head>
         <title>Fixture saved title</title>
         <meta name="description" content="Fixture description">
-        <base href="http://assets.fixture.test:${port}/assets/">
-        <link rel="stylesheet" href="http://external.fixture.test:${port}/unexpected-style">
-        <style>@import url("http://external.fixture.test:${port}/unexpected-import");</style>
+          <base href="http://assets.fixture.test:${port}/assets/">
+          <link rel="stylesheet" href="http://assets.fixture.test:${port}/assets/style.css">
+          <link rel="preload" href="http://assets.fixture.test:${port}/assets/font.woff2" as="font" type="font/woff2" crossorigin>
+          <link rel="stylesheet" href="http://external.fixture.test:${port}/unexpected-style">
+          <style>@import url("http://assets.fixture.test:${port}/assets/import.css"); .inline-card { background-image: url("http://assets.fixture.test:${port}/assets/image.png"); }</style>
       </head>
       <body onload="window.__archiveScriptRan = true">
         <main><article>
@@ -49,9 +52,22 @@ function successPage() {
         </article></main>
         <form action="http://external.fixture.test:${port}/unexpected-form"><input name="secret"><button>send</button></form>
         <iframe src="http://external.fixture.test:${port}/unexpected-frame"></iframe>
-        <script>window.__archiveScriptRan=true;fetch("http://external.fixture.test:${port}/unexpected-fetch");</script>
+        <script>
+          window.__archiveScriptRan = true;
+          fetch("http://external.fixture.test:${port}/unexpected-fetch");
+          const hydrated = document.createElement("p");
+          hydrated.className = "hydrated-card";
+          hydrated.setAttribute("style", "background-image: url('http://assets.fixture.test:${port}/assets/image.png');");
+          hydrated.textContent = "CSR hydrated content";
+          document.querySelector("article").append(hydrated);
+        </script>
       </body>
     </html>`;
+}
+
+function requestStormPage() {
+  const images = Array.from({ length: 140 }, (_, index) => `<img alt="storm-${index}" src="http://assets.fixture.test:${port}/assets/image.png?request=${index}">`).join("");
+  return `<!doctype html><html><head><title>Request storm</title></head><body>${images}</body></html>`;
 }
 
 http.createServer((request, response) => {
@@ -66,6 +82,7 @@ http.createServer((request, response) => {
     return;
   }
   if (pathname === "/source-offline") {
+    unexpectedRequests = [];
     sourceOffline = true;
     response.writeHead(204).end();
     return;
@@ -78,6 +95,7 @@ http.createServer((request, response) => {
   }
 
   if (pathname === "/failed") return send(response, "application/json", "{}");
+  if (pathname === "/request-storm") return send(response, "text/html; charset=utf-8", requestStormPage());
   if (pathname.startsWith("/unexpected")) {
     unexpectedRequests.push(`${host}${pathname}`);
     response.writeHead(204).end();
@@ -92,6 +110,9 @@ http.createServer((request, response) => {
     return;
   }
   if (pathname === "/assets/image.png") return send(response, "image/png", onePixelPng);
+  if (pathname === "/assets/style.css") return send(response, "text/css", `@import url("/assets/import.css"); .hydrated-card { font-family: Fixture; background-image: url("/assets/image.png"); } @font-face { font-family: Fixture; src: url("/assets/font.woff2") format("woff2"); }`);
+  if (pathname === "/assets/import.css") return send(response, "text/css", ".imported-card { border: 3px solid rgb(1, 2, 3); }");
+  if (pathname === "/assets/font.woff2") return send(response, "font/woff2", font, { "access-control-allow-origin": "*" });
   if (pathname === "/assets/document.pdf") return send(response, "application/pdf", pdf);
   if (pathname === "/assets/notes.txt") return send(response, "text/plain", text);
   if (pathname === "/assets/unsupported.svg") return send(response, "image/svg+xml", "<svg/>");

@@ -28,6 +28,33 @@ jobs:
       - run: pnpm test:e2e
       - run: pnpm build
       - run: docker build -t 320-archive:ci .
+      - name: Smoke-test the production image and Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_id="$(docker run -d --name 320-archive-ci \
+            -e ARCHIVE_DATABASE_PATH=/data/archive.db \
+            -e ARCHIVE_STORAGE_ROOT=/data/archives \
+            -e AUTH_ORIGIN=https://auth.bini59.dev \
+            -e CLIENT_ID=archive \
+            -e APP_ORIGIN=https://archive.bini59.dev \
+            --tmpfs /data:rw,mode=1777 \
+            320-archive:ci)"
+          cleanup() {
+            docker rm -f "$container_id" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if docker exec "$container_id" node -e 'fetch("http://127.0.0.1:3000/health/ready").then(response => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))'; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker logs "$container_id"
+              exit 1
+            fi
+            sleep 1
+          done
+          docker exec "$container_id" node --input-type=module -e 'import { chromium } from "playwright"; const browser = await chromium.launch(); await browser.close();'
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

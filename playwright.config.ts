@@ -7,6 +7,7 @@ const e2eStorageRoot = path.join(os.tmpdir(), `320-archive-e2e-${process.pid}`);
 
 export default defineConfig({
   testDir: "./e2e",
+  expect: { timeout: 15_000 },
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
@@ -38,7 +39,7 @@ export default defineConfig({
       ARCHIVE_E2E: "1",
       ARCHIVE_E2E_FIXTURE_PORT: "3101",
       ARCHIVE_RATE_MAX_SUBMISSIONS: "20",
-      ARCHIVE_STORAGE_MAX_BYTES: "10485760",
+      ARCHIVE_STORAGE_MAX_BYTES: "67108864",
       ARCHIVE_ASSET_MAX_BYTES: "1024",
       ARCHIVE_ASSET_TOTAL_MAX_BYTES: "8192",
       ARCHIVE_ASSET_TIMEOUT_MS: "3000",

@@ -2,11 +2,11 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 
-type View = "readable" | "original";
-const views: View[] = ["readable", "original"];
+type View = "rendered" | "readable" | "original";
 
-export function ArchiveViewer({ archiveId, readableHtml }: { archiveId: string; readableHtml: string | null }) {
-  const [selected, setSelected] = useState<View>("readable");
+export function ArchiveViewer({ archiveId, readableHtml, hasRendered = false }: { archiveId: string; readableHtml: string | null; hasRendered?: boolean }) {
+  const views: View[] = hasRendered ? ["rendered", "readable", "original"] : ["readable", "original"];
+  const [selected, setSelected] = useState<View>(hasRendered ? "rendered" : "readable");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function selectFromKeyboard(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -20,6 +20,8 @@ export function ArchiveViewer({ archiveId, readableHtml }: { archiveId: string; 
     setSelected(views[next]);
     tabRefs.current[next]?.focus();
   }
+
+  const label = (view: View) => view === "rendered" ? "렌더링 결과" : view === "readable" ? "읽기" : "원문";
 
   return (
     <section aria-label="저장된 페이지">
@@ -38,10 +40,24 @@ export function ArchiveViewer({ archiveId, readableHtml }: { archiveId: string; 
             onClick={() => setSelected(view)}
             onKeyDown={(event) => selectFromKeyboard(event, index)}
           >
-            {view === "readable" ? "읽기" : "원문"}
+            {label(view)}
           </button>
         ))}
       </div>
+
+      {hasRendered ? (
+        <div id="rendered-panel" role="tabpanel" aria-labelledby="rendered-tab" hidden={selected !== "rendered"} className="pt-6">
+          {selected === "rendered" ? (
+            <iframe
+              className="h-[70vh] w-full rounded-box border border-base-300 bg-white"
+              src={`/archives/${encodeURIComponent(archiveId)}/rendered`}
+              sandbox=""
+              referrerPolicy="no-referrer"
+              title="보관된 페이지 렌더링 결과"
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <div id="readable-panel" role="tabpanel" aria-labelledby="readable-tab" hidden={selected !== "readable"} className="pt-6">
         {readableHtml === null ? (

@@ -11,6 +11,13 @@ export function matchesAssetSignature(mime:AssetMimeType,bytes:Uint8Array):boole
     case "image/avif":return matchesAvifFtyp(b);
     case "application/pdf":return b.length>=5&&b.subarray(0,5).toString("ascii")==="%PDF-";
     case "text/plain":try{new TextDecoder("utf-8",{fatal:true}).decode(bytes);return !b.some(byte=>(byte<0x20&&byte!==0x09&&byte!==0x0a&&byte!==0x0d)||byte===0x7f);}catch{return false;}
+    case "text/css":try{const text=new TextDecoder("utf-8",{fatal:true}).decode(bytes);return !text.includes("\u0000")&&!/^\s*<(?:html|script)\b/i.test(text);}catch{return false;}
+    case "font/woff":
+    case "application/font-woff":return b.length>=4&&b.subarray(0,4).toString("ascii")==="wOFF";
+    case "font/woff2":return b.length>=4&&b.subarray(0,4).toString("ascii")==="wOF2";
+    case "font/ttf":return b.length>=4&&b.subarray(0,4).equals(Buffer.from([0x00,0x01,0x00,0x00]));
+    case "font/otf":return b.length>=4&&b.subarray(0,4).toString("ascii")==="OTTO";
+    case "application/vnd.ms-fontobject":return b.length>=2&&b.subarray(0,2).toString("ascii")==="LP";
   }
 }
 
