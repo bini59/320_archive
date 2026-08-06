@@ -5,7 +5,7 @@ import type { Readable } from "node:stream";
 import type { CapturedPage } from "./types";
 import { resolvePublicUrl, type AddressResolver, systemResolver } from "./url";
 
-export type FetchFailureCode = "network"|"timeout"|"not_html"|"too_large"|"redirect"|"invalid_url"|"unsupported_mime";
+export type FetchFailureCode = "network"|"timeout"|"not_html"|"too_large"|"too_many_requests"|"redirect"|"invalid_url"|"unsupported_mime";
 export class CaptureError extends Error { constructor(readonly code:FetchFailureCode) { super(code); this.name="CaptureError"; } }
 export interface FetcherOptions { timeoutMs:number; maxBytes:number; maxRedirects:number; resolver?:AddressResolver; connectionAddress?: (validatedAddress:string,url:URL)=>{address:string;family:4|6} }
 export interface TransportResult { bytes:Uint8Array; finalUrl:string; contentType:string }

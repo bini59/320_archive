@@ -21,6 +21,14 @@ describe("LocalSnapshotStore", () => {
     expect((await readdir(root)).filter((name) => name.endsWith(".stage"))).toEqual([]);
   });
 
+  it("atomically stores an optional rendered document beside legacy content", async () => {
+    const { root, store } = await fixture();
+    await store.save(id, Buffer.from("original"), Buffer.from("readable"), snapshot, [], Buffer.from("rendered"));
+
+    expect(new TextDecoder().decode((await store.read(id, "rendered")).bytes)).toBe("rendered");
+    expect(await readFile(path.join(root, id, "rendered.html"), "utf8")).toBe("rendered");
+  });
+
   it("reports a missing legacy readable file with a typed error", async () => {
     const { root, store } = await fixture();
     await mkdir(path.join(root, id));

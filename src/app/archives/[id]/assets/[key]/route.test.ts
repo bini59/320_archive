@@ -9,6 +9,7 @@ vi.mock("@/lib/archive/service", () => ({ getArchiveService: () => ({ findAsset 
 const ID = "123e4567-e89b-42d3-a456-426614174000";
 const PNG_KEY = `${"a".repeat(64)}.png` as AssetKey;
 const PDF_KEY = `${"b".repeat(64)}.pdf` as AssetKey;
+const CSS_KEY = `${"c".repeat(64)}.css` as AssetKey;
 
 async function request(id = ID, key: string = PNG_KEY) {
   const { GET } = await import("./route");
@@ -47,5 +48,14 @@ describe("GET /archives/[id]/assets/[key]", () => {
     expect(response.headers.get("content-disposition")).toBe('attachment; filename="archived-asset.pdf"');
     expect(response.headers.get("content-type")).toBe("application/pdf");
     expect(findAsset).toHaveBeenCalledWith(ID, PDF_KEY);
+  });
+
+  it("serves self-hosted CSS inline for the rendered viewer", async () => {
+    findAsset.mockResolvedValue({ archive: { status: "saved" }, stored: { asset: { key: CSS_KEY, mimeType: "text/css", byteLength: 15 }, bytes: Buffer.from("body{color:red}") } });
+    const response = await request(ID, CSS_KEY);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/css");
+    expect(response.headers.get("content-disposition")).toBe("inline");
+    expect(await response.text()).toBe("body{color:red}");
   });
 });

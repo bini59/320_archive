@@ -30,7 +30,13 @@ export default async function ArchivePage({ params }: { params: Promise<{ id: st
 
   const status = statusPresentation[archive.status];
   let readableHtml: string | null = null;
+  let hasRendered = false;
   if (archive.status === "saved" && archive.snapshot) {
+    try {
+      hasRendered = Boolean(await service.findContent(id, "rendered"));
+    } catch (error) {
+      if (!(error instanceof SnapshotContentNotFoundError)) throw error;
+    }
     try {
       const result = await service.findContent(id, "readable");
       if (result) readableHtml = new TextDecoder().decode(result.content.bytes);
@@ -75,7 +81,7 @@ export default async function ArchivePage({ params }: { params: Promise<{ id: st
           </header>
 
           {archive.status === "saved" && archive.snapshot ? (
-            <ArchiveViewer archiveId={archive.id} readableHtml={readableHtml} />
+            <ArchiveViewer archiveId={archive.id} readableHtml={readableHtml} hasRendered={hasRendered} />
           ) : archive.status === "failed" ? (
             <div className="alert alert-error" role="status">
               <span>{archive.failureMessage ?? "페이지를 저장하지 못했습니다."}</span>

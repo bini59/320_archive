@@ -6,6 +6,7 @@ export interface ArchiveConfig {
   maxRedirects: number; maxConcurrent: number; rateWindowMs: number;
   maxSubmissionsPerWindow: number; maxStoredBytes: number;
   assetMaxBytes: number; assetTotalMaxBytes: number; assetMaxCount: number; assetTimeoutMs: number;
+  renderedMaxRequests: number; renderedMaxBytes: number; renderedSettleTimeoutMs: number;
 }
 export type ArchiveConfigInput = Partial<ArchiveConfig>;
 
@@ -32,5 +33,8 @@ export function resolveArchiveConfig(input: ArchiveConfigInput = {}): ArchiveCon
     assetTotalMaxBytes: positive("ARCHIVE_ASSET_TOTAL_MAX_BYTES", input.assetTotalMaxBytes ?? process.env.ARCHIVE_ASSET_TOTAL_MAX_BYTES, 50 * 1024 * 1024),
     assetMaxCount: positive("ARCHIVE_ASSET_MAX_COUNT", input.assetMaxCount ?? process.env.ARCHIVE_ASSET_MAX_COUNT, 20),
     assetTimeoutMs: positive("ARCHIVE_ASSET_TIMEOUT_MS", input.assetTimeoutMs ?? process.env.ARCHIVE_ASSET_TIMEOUT_MS, 10_000),
+    renderedMaxRequests: positive("ARCHIVE_RENDERED_MAX_REQUESTS", input.renderedMaxRequests ?? process.env.ARCHIVE_RENDERED_MAX_REQUESTS, 100),
+    renderedMaxBytes: positive("ARCHIVE_RENDERED_MAX_BYTES", input.renderedMaxBytes ?? process.env.ARCHIVE_RENDERED_MAX_BYTES, 10 * 1024 * 1024),
+    renderedSettleTimeoutMs: positive("ARCHIVE_RENDERED_SETTLE_TIMEOUT_MS", input.renderedSettleTimeoutMs ?? process.env.ARCHIVE_RENDERED_SETTLE_TIMEOUT_MS, 2_000),
   };
 }
