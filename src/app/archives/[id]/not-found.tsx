@@ -10,7 +10,7 @@ export default function ArchiveNotFound() {
           <p className="py-6 text-base-content/70">
             주소가 올바른지 확인하거나 새 URL을 보관해 주세요.
           </p>
-          <Link className="btn btn-primary" href="/">홈으로 돌아가기</Link>
+          <Link className="btn btn-neutral" href="/">홈으로 돌아가기</Link>
         </div>
       </div>
     </main>

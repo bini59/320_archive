@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/auth";
+import { AppNavigation } from "./app-navigation";
 
 async function currentIdentity() {
   try {
@@ -36,23 +37,14 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
   return (
     <div className="flex min-h-full flex-1 bg-base-200">
       <aside className="hidden w-64 shrink-0 border-r border-base-300 bg-base-100 md:flex md:flex-col">
-        <div className="flex items-center gap-3 border-b border-base-300 px-5 py-4">
-          <span aria-hidden="true" className="grid size-9 place-items-center rounded-lg bg-primary font-bold text-primary-content">
-            A
-          </span>
+        <div className="flex h-16 items-center gap-3 border-b border-base-300 px-5">
+          <img alt="" className="size-9 rounded-lg object-cover" src="https://static.bini59.dev/logo/logo-128.png" />
           <div className="min-w-0">
-            <p className="truncate font-semibold">320 Archive</p>
+            <p className="truncate font-semibold">Archive</p>
             <p className="truncate text-xs text-base-content/60">개인용 아카이브</p>
           </div>
         </div>
-        <nav aria-label="주 메뉴" className="flex flex-col gap-1 p-3">
-          <a className="rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-base-200" href="/">
-            사이트 등록
-          </a>
-          <a className="rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-base-200" href="/archives">
-            사이트 열람
-          </a>
-        </nav>
+        <AppNavigation />
         <div className="mt-auto border-t border-base-300 p-3">
           <a className="flex items-center gap-3 rounded-lg p-2 hover:bg-base-200" href="/client">
             {avatarUrl ? (
@@ -70,9 +62,10 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="navbar sticky top-0 z-20 min-h-16 border-b border-base-300 bg-base-100/95 px-4 backdrop-blur sm:px-6">
-          <div className="flex-1">
-            <a className="text-lg font-bold tracking-tight" href="/">320 Archive</a>
+        <header className="navbar sticky top-0 z-20 h-16 min-h-16 border-b border-base-300 bg-base-100/95 px-4 backdrop-blur sm:px-6">
+          <div className="flex flex-1 items-center gap-2">
+            <img alt="" className="size-7 rounded-md object-cover" src="https://static.bini59.dev/logo/logo-64.png" />
+            <a className="text-lg font-bold tracking-tight" href="/">Archive</a>
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-sm text-base-content/70 sm:inline">{displayName}</span>
@@ -84,10 +77,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
           </div>
         </header>
         <div className="border-b border-base-300 bg-base-100 px-4 py-2 md:hidden">
-          <nav aria-label="주 메뉴" className="flex gap-2">
-            <a className="btn btn-sm btn-ghost" href="/">사이트 등록</a>
-            <a className="btn btn-sm btn-ghost" href="/archives">사이트 열람</a>
-          </nav>
+          <AppNavigation mobile />
         </div>
         <div className="min-w-0 flex-1">{children}</div>
       </div>

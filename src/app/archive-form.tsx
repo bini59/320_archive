@@ -32,7 +32,7 @@ export function ArchiveForm() {
           required
           type="url"
         />
-        <button className="btn btn-primary join-item" disabled={pending} type="submit">
+        <button className="btn btn-neutral join-item" disabled={pending} type="submit">
           {pending ? "캡처 중…" : "아카이브 추가"}
         </button>
       </div>

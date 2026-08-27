@@ -14,7 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "320 Archive",
+  title: "Archive",
+  icons: {
+    icon: [
+      { url: "https://static.bini59.dev/logo/logo-32.png", type: "image/png", sizes: "32x32" },
+      { url: "https://static.bini59.dev/logo/logo-128.png", type: "image/png", sizes: "128x128" },
+    ],
+  },
   description: "개인용 웹 아카이브",
 };
 
