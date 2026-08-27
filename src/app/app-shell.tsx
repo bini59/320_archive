@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { verifySession } from "@/lib/auth";
 import { AppNavigation } from "./app-navigation";
+import { ThemeToggle } from "./theme-toggle";
+import { CommandPalette } from "./command-palette";
 
 async function currentIdentity() {
   try {
@@ -46,7 +48,8 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
         </div>
         <AppNavigation />
         <div className="mt-auto border-t border-base-300 p-3">
-          <a className="flex items-center gap-3 rounded-lg p-2 hover:bg-base-200" href="/client">
+          <div className="mb-2"><ThemeToggle /></div>
+          <a className="mb-1 flex items-center gap-3 rounded-lg p-2 hover:bg-base-200" href="/client">
             {avatarUrl ? (
               <img alt={`${displayName} 프로필 사진`} className="size-9 rounded-full object-cover" src={avatarUrl} />
             ) : (
@@ -59,6 +62,9 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
               <span className="block truncate text-xs text-base-content/60">계정 설정</span>
             </span>
           </a>
+          <a className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-base-200" href="/settings">
+            <span aria-hidden="true">⚙</span><span>사이트 환경설정</span>
+          </a>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -68,7 +74,8 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
             <a className="text-lg font-bold tracking-tight" href="/">Archive</a>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-base-content/70 sm:inline">{displayName}</span>
+             <CommandPalette />
+             <span className="hidden text-sm text-base-content/70 sm:inline">{displayName}</span>
             <a aria-label="계정 설정" className="avatar placeholder" href="/client">
               <span className="size-9 rounded-full bg-base-300 text-sm font-semibold">
                 {avatarUrl ? <img alt="" className="size-9 rounded-full object-cover" src={avatarUrl} /> : initials(identity.name, identity.email)}

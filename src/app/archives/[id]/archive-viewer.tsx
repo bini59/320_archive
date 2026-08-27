@@ -1,12 +1,17 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useViewPreference } from "@/app/use-preferences";
 
 type View = "rendered" | "readable" | "original";
 
 export function ArchiveViewer({ archiveId, readableHtml, hasRendered = false }: { archiveId: string; readableHtml: string | null; hasRendered?: boolean }) {
-  const views: View[] = hasRendered ? ["rendered", "readable", "original"] : ["readable", "original"];
+  const views = useMemo<View[]>(() => hasRendered ? ["rendered", "readable", "original"] : ["readable", "original"], [hasRendered]);
+  const { preference, ready } = useViewPreference();
   const [selected, setSelected] = useState<View>(hasRendered ? "rendered" : "readable");
+  useEffect(() => {
+    if (ready && views.includes(preference)) setSelected(preference);
+  }, [preference, ready, views]);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function selectFromKeyboard(event: KeyboardEvent<HTMLButtonElement>, index: number) {
