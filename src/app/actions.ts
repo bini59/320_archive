@@ -1,7 +1,15 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireAuthenticatedSession } from "@/lib/auth";
+import {
+  AuthUnavailableError,
+  isE2eAuthBypass,
+  loginUrl,
+  currentAppOrigin,
+  requireAuthenticatedSession,
+  revokeSession,
+} from "@/lib/auth";
 import { getArchiveService } from "@/lib/archive/service";
 import { ArchiveUrlError } from "@/lib/archive/url";
 import { TagValidationError } from "@/lib/archive/tags";
@@ -38,4 +46,22 @@ export async function createArchiveAction(
   }
 
   redirect(`/archives/${archiveId}`);
+}
+
+export async function logoutAction(): Promise<void> {
+  const jar = await cookies();
+  const sid = jar.get("sid")?.value;
+
+  if (sid && !isE2eAuthBypass()) {
+    try {
+      await revokeSession(sid);
+    } catch (error) {
+      // A revoke that never reached auth must not strand the user in a
+      // half-signed-out state, so drop the local cookie either way.
+      if (!(error instanceof AuthUnavailableError)) throw error;
+    }
+  }
+  jar.delete({ name: "sid", path: "/" });
+
+  redirect(loginUrl(`${await currentAppOrigin()}/`).toString());
 }

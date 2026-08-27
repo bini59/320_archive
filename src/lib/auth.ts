@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -34,6 +35,49 @@ export function loginUrl(returnTo: string) {
   return url;
 }
 
+// Only AUTH_ORIGIN matters for the account centre link, so this stays usable
+// under the E2E bypass where the client credentials are deliberately absent.
+export function accountCenterUrl() {
+  const authOrigin = process.env.AUTH_ORIGIN?.replace(/\/$/, "");
+  if (!authOrigin) {
+    if (isE2eAuthBypass()) return "https://auth.bini59.dev/client";
+    throw new AuthConfigurationError("AUTH_ORIGIN is required");
+  }
+  return new URL("/client", authOrigin).toString();
+}
+
+// 321_auth guards POST /logout with a double-submit csrf token and clears the
+// csrf cookie after each login callback, so a browser-side form cannot rely on
+// having one. Calling it server to server lets us issue the matched pair and
+// still revoke the shared sid session in Redis.
+export async function revokeSession(sid: string): Promise<void> {
+  const { authOrigin, clientId } = config();
+  const csrf = randomBytes(16).toString("base64url");
+  const url = new URL("/logout", authOrigin);
+  url.searchParams.set("client_id", clientId);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { cookie: `sid=${sid}; csrf=${csrf}`, "x-csrf-token": csrf },
+      cache: "no-store",
+      redirect: "manual",
+      signal: controller.signal,
+    });
+    // 302 is the success path; auth redirects back to the client after revoking.
+    if (response.status !== 302 && !response.ok) {
+      throw new AuthUnavailableError(`auth logout failed (${response.status})`);
+    }
+  } catch (error) {
+    if (error instanceof AuthUnavailableError) throw error;
+    throw new AuthUnavailableError("auth logout unavailable");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function verifySession(sid: string | undefined): Promise<AuthenticatedIdentity | null> {
   if (isE2eAuthBypass()) {
     return { userId: "e2e", email: null, name: "E2E", avatarUrl: null, membership: { role: "member", status: "active" } };
@@ -62,16 +106,21 @@ export async function verifySession(sid: string | undefined): Promise<Authentica
   }
 }
 
+export async function currentAppOrigin() {
+  const configured = process.env.APP_ORIGIN?.replace(/\/$/, "");
+  if (configured) return configured;
+  const requestHeaders = await headers();
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  if (!host) throw new AuthUnavailableError("request host is unavailable");
+  return `${protocol}://${host}`;
+}
+
 export async function requireAuthenticatedSession() {
   const sid = (await cookies()).get("sid")?.value;
   const identity = await verifySession(sid);
   if (!identity || identity.membership?.status !== "active") {
-    const requestHeaders = await headers();
-    const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
-    const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-    if (!host) throw new AuthUnavailableError("request host is unavailable");
-    const appOrigin = process.env.APP_ORIGIN?.replace(/\/$/, "") ?? `${protocol}://${host}`;
-    redirect(loginUrl(`${appOrigin}/`).toString());
+    redirect(loginUrl(`${await currentAppOrigin()}/`).toString());
   }
   return identity;
 }

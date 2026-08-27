@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
-import { verifySession } from "@/lib/auth";
+import { accountCenterUrl, verifySession } from "@/lib/auth";
 import { AppNavigation } from "./app-navigation";
 import { Breadcrumb } from "./breadcrumb";
 import { ThemeToggle } from "./theme-toggle";
 import { CommandPalette } from "./command-palette";
+import { ProfileMenu } from "./profile-menu";
 import { SettingsIcon } from "./icons";
 
 async function currentIdentity() {
@@ -52,12 +53,6 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
         <AppNavigation />
         <div className="sidebar-foot">
           <ThemeToggle />
-          <a className="nav-item" href="/client">
-            <span className="avatar">
-              {avatarUrl ? <img alt={`${displayName} 프로필 사진`} src={avatarUrl} /> : fallback}
-            </span>
-            <span>{displayName}</span>
-          </a>
           <a className="nav-item" href="/settings">
             <SettingsIcon />
             <span>사이트 환경설정</span>
@@ -69,9 +64,13 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
           <Breadcrumb />
           <span className="topbar-spacer" />
           <CommandPalette />
-          <a aria-label="계정 설정" className="avatar" href="/client">
-            {avatarUrl ? <img alt="" src={avatarUrl} /> : fallback}
-          </a>
+          <ProfileMenu
+            accountCenterHref={accountCenterUrl()}
+            avatarUrl={avatarUrl}
+            displayName={displayName}
+            email={identity.email}
+            fallback={fallback}
+          />
         </header>
         <div className="mobile-nav">
           <AppNavigation mobile />
