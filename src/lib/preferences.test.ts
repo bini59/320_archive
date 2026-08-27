@@ -36,7 +36,7 @@ describe("preferences", () => {
     expect(resolveTheme("light", true)).toBe("light");
   });
 
-  it("clears data-theme for system so daisyUI prefers-color-scheme applies", () => {
+  it("clears data-theme for system so the prefers-color-scheme tokens apply", () => {
     const root = fakeRoot();
     applyThemePreference("dark", root);
     expect(root.attributes.get("data-theme")).toBe("dark");

@@ -14,7 +14,6 @@
     "setup:auth": "sh scripts/setup-auth.sh"
   },
   "dependencies": {
-    "daisyui": "5.7.14",
     "next": "16.2.12",
     "playwright": "1.62.1",
     "react": "19.2.4",
