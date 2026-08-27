@@ -5,7 +5,7 @@
 ## Stack
 
 - Next.js 16, React 19, TypeScript 7
-- Tailwind CSS v4, daisyUI v5
+- Tailwind CSS v4 + `src/app/globals.css`의 자체 디자인 토큰 (2A 스타일)
 - SQLite (Node.js built-in `node:sqlite`)
 - Playwright Chromium (capture-time only; not a viewer dependency)
 - pnpm

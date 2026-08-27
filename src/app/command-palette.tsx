@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SearchIcon } from "./icons";
 
 export function CommandPalette() {
   const router = useRouter();
@@ -44,15 +45,30 @@ export function CommandPalette() {
 
   return (
     <>
-      <button ref={triggerRef} aria-label="검색 열기" className="btn btn-ghost btn-sm gap-2" onClick={() => setOpen(true)} type="button">
-        <span aria-hidden="true">⌕</span><span className="hidden sm:inline">검색</span><kbd className="kbd kbd-sm hidden sm:inline">Ctrl K</kbd>
+      <button ref={triggerRef} aria-label="검색 열기" className="cmdk-btn" onClick={() => setOpen(true)} type="button">
+        <SearchIcon size={13} />
+        <span>아카이브 검색</span>
+        <kbd style={{ marginLeft: "auto" }}>Ctrl K</kbd>
       </button>
       {open ? (
-        <div aria-label="검색" aria-modal="true" className="fixed inset-0 z-50 bg-black/40 p-4 pt-[15vh]" onClick={() => setOpen(false)} role="dialog">
-          <form ref={dialogRef} className="mx-auto max-w-xl overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-2xl" onClick={(event) => event.stopPropagation()} onSubmit={submit}>
+        <div aria-label="검색" aria-modal="true" className="palette-backdrop" onClick={() => setOpen(false)} role="dialog">
+          <form ref={dialogRef} className="palette" onClick={(event) => event.stopPropagation()} onSubmit={submit}>
             <label className="sr-only" htmlFor="command-search">아카이브 검색</label>
-            <div className="flex items-center gap-3 border-b border-base-300 px-4"><span aria-hidden="true" className="text-xl">⌕</span><input autoFocus className="input input-ghost min-w-0 flex-1" id="command-search" onChange={(event) => setQuery(event.target.value)} placeholder="아카이브 검색..." value={query} /><kbd className="kbd kbd-sm">Esc</kbd></div>
-            <div className="p-2"><button className="btn btn-ghost w-full justify-start font-normal" type="submit">검색 결과 보기 <span className="ml-auto text-xs text-base-content/50">Enter</span></button><a className="btn btn-ghost w-full justify-start font-normal" href="/settings" onClick={() => setOpen(false)}>사이트 환경설정</a></div>
+            <div className="palette-head">
+              <SearchIcon size={15} />
+              <input
+                autoFocus
+                id="command-search"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="아카이브 검색..."
+                value={query}
+              />
+              <kbd>Esc</kbd>
+            </div>
+            <div className="palette-list">
+              <button className="palette-item" type="submit">검색 결과 보기 <kbd>Enter</kbd></button>
+              <a className="palette-item" href="/settings" onClick={() => setOpen(false)}>사이트 환경설정</a>
+            </div>
           </form>
         </div>
       ) : null}

@@ -33,12 +33,11 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      data-theme="light"
+      className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <head><script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} /></head>
-      <body className="min-h-full flex flex-col">
+      <body>
         <AppShell>{children}</AppShell>
       </body>
     </html>

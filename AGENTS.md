@@ -5,7 +5,7 @@
 ## Stack
 
 - Next.js 16 / React 19 / TypeScript 7 / pnpm
-- Tailwind CSS v4 + daisyUI v5
+- Tailwind CSS v4 + `src/app/globals.css`의 자체 디자인 토큰 (2A 스타일)
 - SQLite via Node.js built-in `node:sqlite`
 - 기존 Docker 환경에 배포하고, 외부 Cloudflare Tunnel이 서비스로 라우팅한다.
 
