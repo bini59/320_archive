@@ -1,240 +1,241 @@
 ---
 track: heavy
 exec: worktree
-files: 40+
-branch: feat-user-owned-private-archives
+files: 20-30 per integrated release (issue PRs are isolated)
+branch: feat/issues-21-28
 base: main
 ---
 
-# 사용자 소유 아카이브·폴더·공개 탐색 구현 계획
+# 320_archive 이슈 #21~#28 구현 계획
 
-## 1. 확정 요구사항과 경계
+## 계획 상태
 
-- `/verify` 성공 시 인증 응답의 사용자를 로컬 SQLite `users`에 upsert한다.
-- `membership.status`가 `active`가 아니면 로컬 사용자도 `disabled` 상태로 반영하고, 이후 보호된 작업을 거부한다. 인증 원격 상태가 비활성/중지인지와 로컬 disabled 상태를 혼동하지 않는다.
-- 아카이브는 반드시 로컬 사용자 소유이며, 소유자 전용 조회/변경 경계와 공개 아카이브 조회 경계를 별도 메서드·쿼리·라우트 흐름으로 둔다.
-- 폴더는 사용자별 1-depth만 허용한다. 폴더 안에서 사이트를 등록할 수 있고, 캡처 완료 후 생성된 상세 화면은 해당 폴더로 돌아간다.
-- 새 아카이브의 공개 설정 기본값은 `private`다. 공개 탐색/상세는 `public` 아카이브만 대상으로 하며 비로그인 접근을 허용한다.
-- 공개 탐색은 카드형 메뉴/카드형 결과 UI로 개편한다.
-- 기존 아카이브 데이터는 보존·호환 마이그레이션하지 않고 삭제한다. 기존 `archives_v1` 복사 로직도 제거한다.
-- 구현은 이 계획 작성 단계에서 수행하지 않는다.
+- [ ] 이 문서는 계획 전용이다. 계획 단계에서는 애플리케이션 코드, 테스트 코드, 설정을 수정하지 않는다.
+- [ ] 구현은 `feat/issues-21-28` 통합 브랜치에서 시작한다.
+- [ ] 각 이슈는 원칙적으로 하나의 PR로 분리하고, PR에는 `Closes #N`을 포함한다.
+- [ ] 모든 PR은 해당 이슈의 단위/통합 테스트와 대표 E2E를 포함하며, CI 완료 후 결과에 따라 수정 또는 머지한다.
+- [ ] 최종 통합 후 `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build`를 실행한다.
+- [ ] 코드 변경을 마친 뒤 `graphify update .`를 실행한다. 이 계획 작성 단계에서는 실행하지 않는다.
 
-## 2. 현재 구조 조사 결과
+## 현재 조사 결과
 
-### 인증
+### 저장소 상태
 
-- `src/lib/auth.ts:81`의 `verifySession`이 `/verify` 응답을 그대로 `AuthenticatedIdentity`로 반환한다.
-- `src/lib/auth.ts:119`의 `requireAuthenticatedSession`은 원격 membership만 확인하고 로컬 사용자를 만들거나 disabled 상태를 갱신하지 않는다.
-- `src/proxy.ts:11`은 현재 `/`만 보호하며 `membership.status === active`일 때 통과시킨다.
-- `src/app/app-shell.tsx:10`은 레이아웃용으로 매 요청 `verifySession`을 호출하고 활성 사용자만 셸을 렌더링한다. 로컬 사용자 동기화는 이 표시용 경로가 아니라 명시적인 인증/보호 경계에 두어 중복 upsert를 피한다.
-- `src/app/actions.ts:22`의 등록 Server Action은 세션 확인 뒤 전역 아카이브 서비스를 호출한다.
+- `main`과 `origin/main`이 `4f18294`에서 일치하며 working tree는 깨끗하다.
+- 기존 `tmp/TODO.md`는 이미 완료된 사용자 소유 아카이브/폴더 계획이었다. 이번 전체 이슈 계획으로 교체했다.
+- Next.js 16.2.12, React 19.2.4, TypeScript 7, pnpm, Vitest, Playwright를 사용한다.
+- 배포는 `main` → GitHub Actions → GHCR ARM64 → 기존 Docker `archive-prod`이며 Cloudflare Tunnel은 저장소 범위 밖이다.
 
-### 아카이브 도메인/DB
+### 현재 구현과 gap
 
-- `src/lib/archive/types.ts:28`의 `Archive`에는 owner, visibility, folder 정보가 없다.
-- `src/lib/archive/types.ts:72`의 `ArchiveRepository`는 `createOrGet`, `findById`, `listPublic`만 제공하고 모두 전역 범위다.
-- `src/lib/archive/database.ts:10`의 `SqliteArchiveRepository`는 `archives`를 전역 테이블로 생성하며 현재 `normalized_url UNIQUE`로 사용자 간 중복도 막는다.
-- `src/lib/archive/database.ts:16-35`에는 구 schema를 `archives_v1`로 옮겨 다시 복사하는 기존 호환/복구 로직이 있다. 삭제 결정에 따라 신규 스키마로 직접 만들고 기존 아카이브 행은 이관하지 않는다.
-- `src/lib/archive/database.ts:39-43`에서 생성, 저장 완료, 공개 목록이 전역으로 처리된다. 공개 목록은 현재 `status='saved'`만 필터링한다.
-- `src/lib/archive/service.ts:40`의 `create`는 owner/folder/visibility를 받지 않으며, 캡처 완료 후 별도 목적지 정보가 없다.
-- `src/lib/archive/service.ts:121-138`의 public list/detail/content/asset 메서드가 소유자 확인 없이 ID만으로 접근 가능하다. 특히 public detail과 private owner detail을 분리해야 한다.
-- `src/lib/archive/storage.ts` 계열은 UUID 디렉터리로 파일을 저장하므로 데이터 접근 authorization은 파일 경로 검증만으로 충족되지 않고 SQLite 조회 결과에 의존해야 한다.
+- `src/app/app-shell.tsx`, `src/app/app-navigation.tsx`는 데스크톱 사이드바와 모바일 상단 영역을 모두 렌더링하지만, 모바일 nav는 일반 가로 nav일 뿐 하단 고정/안전 영역/오버플로 처리 규칙이 없다.
+- `src/app/archives/[id]/archive-viewer.tsx`는 탭/tabpanel을 제공하지만 좁은 viewport에서의 배치 전용 스타일과 검증이 부족하다.
+- `src/app/archive-form.tsx`는 폴더 선택에서 `__new__`를 선택하면 `/library?returnTo=%2F`로 이동한다. 모달 생성은 없다.
+- `src/app/actions.ts`에는 `createFolderAction`, `setArchiveVisibilityAction` 등이 있고 owner는 세션에서 취득하지만, 모달에 맞는 반환 상태 계약은 없다.
+- `src/app/globals.css`의 `.archive-form`은 `width: min(100%, 900px)`, `.form-row`는 flex이며 `@media (max-width: 720px)`가 일부만 세로 전환한다. #26은 이 스타일 계약을 정리해야 한다.
+- `src/components/folder-view.tsx`의 폴더 내 목록은 `table.data` 하나이며 모바일 카드가 없다. 공개 탐색 `src/app/archives/page.tsx`는 이미 카드 기반이지만 검색 toolbar, 태그, 페이지 이동이 좁은 폭에서 재배치되지 않는다.
+- `src/components/library-view.tsx`의 folder grid는 `minmax(210px, 1fr)`이고 이름은 한 줄 ellipsis라 좁은 화면 긴 폴더명에 취약하다.
+- `src/lib/archive/service.ts`의 `create()`는 pending row를 만들고 동기 capture/save를 수행한다. 저장 실패 시 reservation release와 store cleanup을 하고, staging 저장은 `LocalSnapshotStore.save()`가 임시 디렉터리에서 rename한다.
+- 현재 retry API/동시 claim은 없고, 실패 archive는 detail에서 실패 문구를 보여주는 흐름에 머문다.
+- 현재 실패 메시지 매핑은 `src/app/archive-form-state.ts`에 일부 재시도 가능 오류만 남긴다. ordinary failure는 detail redirect 후 표시된다.
+- `src/lib/archive/database.ts`/`types.ts`에는 owner/folder/visibility predicate, public/owned content·asset 조회, folder CRUD, visibility 변경이 이미 존재한다. #27은 이 기존 데이터 모델을 깨지 않고 저장/예산/파일 경계를 보강해야 한다.
+- 현재 `src/lib/archive/service.test.ts`에는 저장 성공, 실패 시 파일 cleanup, 예산/동시성, private/public content 권한 테스트가 있다. `e2e/archive-submission.spec.ts`에는 성공·실패·자산·탭 흐름이 있으므로 확장 지점이 명확하다.
 
-### 라우트/UI
+## 이슈별 구현 계약
 
-- `src/app/page.tsx:3`은 등록 화면과 공개 아카이브 링크만 제공한다.
-- `src/app/archive-form.tsx:9`는 URL/태그만 제출하며 folderId/visibility/returnTo가 없다.
-- `src/app/archives/page.tsx:37`은 인증 없이 `listPublic`을 호출하지만 테이블 UI이며 카드형 탐색이 아니다.
-- `src/app/archives/[id]/page.tsx:22`와 `assets/[key]/route.ts`, `rendered/route.ts`, `original/route.ts`는 ID로 아카이브를 읽는다. public/private 분기와 소유자 검사를 공통 서비스 경계에서 적용해야 한다.
-- `src/app/app-navigation.tsx:7`은 1-depth 폴더 메뉴가 없고, `src/app/app-shell.tsx:44`가 인증 사용자에게만 사이드바를 렌더링한다.
-- `src/app/breadcrumb.tsx:5`는 공개 상세 기준 라벨만 처리하므로 폴더 복귀/개인 보관함 경로를 확장해야 한다.
-- `e2e/archive-submission.spec.ts`와 관련 단위 테스트는 현재 전역 등록·공개 목록·상세 흐름을 전제로 한다.
+### #27 — 저장 일관성 및 자원 정리 (선행 기반 PR)
 
-## 3. 목표 도메인 모델과 보안 원칙
+목표는 기존 아카이브 호환성을 유지하면서 capture → derived content → assets → DB finalization의 실패 경계를 명확히 하는 것이다. 새 데이터 모델이나 삭제 migration을 만들지 않는다.
 
-### 로컬 사용자
+- 저장 전후 상태를 `pending → saved` 또는 `pending → failed`로만 전환하고, 실패한 reservation을 반드시 release한다.
+- stage 디렉터리와 최종 archive 디렉터리를 구분하고, rename 이전/이후 예외 모두에서 stage·부분 최종 디렉터리를 정리한다. 기존 저장본을 덮어쓰지 않는다.
+- `original.html`, `readable.html`, optional `rendered.html`, `snapshot.json`, `assets.json`의 부분 누락이 있으면 saved로 표시하지 않으며, read route는 기존 404/예측 가능한 fallback 계약을 유지한다.
+- 예산 집계는 실제 성공 파일 바이트와 일치해야 하며, asset 저장 실패/최종화 실패/동시 요청/프로세스 reopen을 검증한다.
+- 기존 DB/schema/기존 saved archive를 보존한다. 운영 데이터 삭제·비가역 migration은 범위에서 제외한다.
 
-`users` 테이블을 추가한다.
+소유 파일: `src/lib/archive/service.ts`, `src/lib/archive/storage.ts`, `src/lib/archive/database.ts`, `src/lib/archive/types.ts` 및 해당 archive 테스트. UI 파일은 수정하지 않는다.
 
-- `id TEXT PRIMARY KEY`: auth provider가 반환한 `userId`를 안정적인 외부 식별자로 사용한다.
-- `email`, `name`, `avatar_url`: verify 응답의 최신 profile snapshot.
-- `status TEXT NOT NULL CHECK(status IN ('active','disabled'))`.
-- `membership_role`, `membership_status`: 마지막 verify 결과를 감사/진단용으로 저장한다.
-- `created_at`, `updated_at`.
-- `userId`는 신뢰할 수 없는 클라이언트 입력이 아니라 서버가 검증한 `/verify` 응답에서만 취득한다.
+### #24 — 실패한 아카이브 재시도
 
-`verifySession` 성공 직후 또는 `requireAuthenticatedSession` 내부에서 `syncLocalUser(identity)`를 실행한다. 활성 membership이면 active upsert, 그 외 membership 상태면 disabled upsert다. disabled 사용자는 로컬 사용자로 남겨 소유 데이터와 상태를 식별할 수 있으나 등록/폴더 관리/개인 조회는 거부한다. auth 장애/응답 파싱 실패는 임의로 disabled 처리하지 않고 기존과 같이 unavailable로 처리한다.
+#27의 상태/cleanup 계약 위에 같은 archive id를 재사용하는 owner-only retry를 추가한다.
 
-### 폴더
+- 재시도 가능한 코드(일시적 network/timeout/overloaded/rate limit/capture_failed 등)와 영구적 입력 오류(invalid URL, not HTML, unsupported MIME, too large, unsafe redirect 등)를 명시적인 allowlist로 분리한다.
+- SQL 조건부 claim으로 `status='failed'`인 owner archive만 원자적으로 `pending`으로 바꾼다. 이미 retry 중이거나 saved인 행은 no-op/안전한 결과를 반환한다.
+- retry는 새 archive row를 만들지 않고 기존 folder/visibility/tags/normalized URL/id를 보존한다. 동시 클릭·새로고침에도 capture가 한 번만 실행되도록 한다.
+- Server Action과 detail/library 진입점 모두 owner session을 재검증한다. 클라이언트의 owner id를 신뢰하지 않는다.
+- 성공 시 saved, 재실패 시 allowlisted failure 상태로 복귀하고 파일·budget 잔여를 정리한다.
 
-`folders` 테이블을 추가한다.
+소유 파일: `src/lib/archive/types.ts`, `database.ts`, `service.ts`, `src/app/actions.ts`, 실패 detail/목록 컴포넌트와 관련 테스트. #25의 문구/시각 상태는 이 PR에서 최소 계약만 제공하고 시각 UX는 #25에서 마무리한다.
 
-- `id TEXT PRIMARY KEY`, `owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE`.
-- `name TEXT NOT NULL`과 길이/공백 검증, `created_at`, `updated_at`.
-- `(owner_id, name)` unique.
-- parent_id는 만들지 않는다. 서버와 DB 모두 1-depth를 보장한다.
+### #25 — 아카이빙 진행 상태 및 결과 UX
 
-### 아카이브
+현재 capture가 동기 Server Action이므로 서버 내부의 실시간 진행률을 가장하지 않는다. 브라우저의 action pending 상태와 최종 archive 상태를 정확히 표현하는 범위로 구현한다. 비동기 queue 도입은 별도 이슈다.
 
-기존 테이블을 새 스키마로 생성한다.
+- 제출 직후 `useActionState` pending 동안 버튼을 disabled하고, URL/폴더/태그 입력의 중복 제출을 막는다.
+- `pending`, `saved`, retryable failed, permanent failed, quota/rate/concurrency 거부를 사용자가 구분할 수 있는 상태/문구로 정리한다.
+- pending이 오래 걸릴 때 “캡처 중이며 새로고침하지 않아도 된다”는 안내와 장시간 대기 후 확인 경로를 제공하되, 존재하지 않는 진행률을 표시하지 않는다.
+- 실패 결과에는 재시도 가능한 경우 재시도 버튼과 다음 행동을, 영구 오류에는 수정할 입력/원인 안내를 제공한다.
+- 성공 redirect, 오류 후 폼 값/폴더 context 보존, public cache revalidation을 회귀시키지 않는다.
 
-- `owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE`.
-- `folder_id TEXT NULL REFERENCES folders(id) ON DELETE SET NULL`.
-- `visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private','public'))`.
-- 기존 status/snapshot/failure 필드는 유지한다.
-- unique는 `owner_id, normalized_url` 조합으로 변경한다. 같은 URL을 다른 사용자가 소유할 수 있어야 한다.
-- owner/folder 인덱스와 `(visibility, status, captured_at DESC, id DESC)` 공개 목록 인덱스를 추가한다.
-- 생성 시 owner/folder의 일치 여부를 한 트랜잭션에서 검증한다.
+소유 파일: `src/app/archive-form.tsx`, `src/app/archive-form-state.ts`, archive detail viewer/상태 표시 컴포넌트, `src/app/actions.ts`의 결과 전달부, 컴포넌트/E2E 테스트. #24가 먼저 머지되어 retry action을 제공해야 한다.
 
-### 조회 분리
+### #26 — 사이트 등록 폼 유동형 레이아웃
 
-동일한 내부 `findById`를 재사용하지 않고 아래 경계를 별도로 설계한다.
+- 고정 max-width 의존을 제거하거나 토큰화하고, 입력 영역은 부모 usable width를 사용한다.
+- URL 입력과 등록 버튼은 넓은 폭에서 합리적인 비율로 배치하고, 모바일에서는 세로 stack 및 full width가 된다.
+- 폴더/공개 설정/태그 label, select, error가 overflow 없이 배치되며 긴 폴더명과 긴 오류도 줄바꿈한다.
+- 모바일·태블릿·데스크톱 breakpoint는 임의 픽셀 고정보다 `minmax`, `clamp`, flex/grid 비율을 우선한다.
 
-- `findOwnedById(ownerId, archiveId)`: owner_id 일치 + active owner 전제의 개인 조회.
-- `findPublicById(archiveId)`: `status='saved' AND visibility='public'`만 반환. owner 정보는 공개 응답에 불필요하면 노출하지 않는다.
-- `listOwned(ownerId, folderId?)`: 반드시 owner_id predicate를 포함하는 개인 목록.
-- `listPublic(query)`: 반드시 saved/public predicate만 포함하고 로그인 정보에 의존하지 않는 공개 목록.
-- `findOwnedContent`/`findPublicContent`, `findOwnedAsset`/`findPublicAsset`를 서비스 또는 authorization wrapper로 분리한다.
+소유 파일: `src/app/globals.css`, `src/app/archive-form.tsx`의 className/semantic wrapper, `src/components/home-view.tsx`, 관련 UI/E2E 테스트. #22는 이 PR의 layout class를 소비하므로 #26을 선행한다.
 
-ID를 아는 것만으로 private archive의 metadata, snapshot, original/readable/rendered, asset이 노출되지 않아야 한다. 공개 상세도 public으로 전환된 saved 아카이브만 열며 pending/failed/private는 404로 통일한다. public route에서 owner 인증을 fallback으로 사용하지 않는다.
+### #22 — 사이트 등록 중 새 폴더 생성 모달
 
-## 4. 단계별 구현 계획
+- 폴더 select에서 새 폴더를 선택하면 route 이동 없이 client modal을 연다.
+- modal은 이름 input, 취소, 생성, pending/duplicate-submit 방지, server validation error를 제공한다.
+- Escape, backdrop/취소 정책, `role=dialog`, labelled title, initial focus, 닫힌 뒤 select/form focus 복귀를 구현한다.
+- Server Action은 기존처럼 session owner만 사용하고, 성공 시 새 folder id/name을 parent form select에 즉시 반영·선택한다. 폴더 목록 stale state를 남기지 않는다.
+- 폴더명 trim/빈 값/길이/중복 오류는 사용자에게 안전한 field error로 반환한다. returnTo redirect는 modal 흐름에서 사용하지 않는다.
 
-### Phase A — DB/도메인 계약과 초기화 정책
+소유 파일: `src/app/archive-form.tsx`, 신규 `src/app/folder-create-modal.tsx`(필요 시), `src/app/actions.ts`, folder action/state 테스트, archive form E2E. #26의 form layout을 기준으로 한다.
 
-1. `src/lib/archive/types.ts`에 `ArchiveVisibility`, `User`, `Folder`, public/owned DTO, owner-aware repository 입력/결과 타입을 추가한다.
-2. `src/lib/auth.ts`에 local user repository/service 의존성을 연결할 경계를 정하고, verify 성공 후 동기화되는 반환 계약을 추가한다. 인증 원격 응답의 필수 `userId`와 membership shape를 런타임 검증한다.
-3. `src/lib/archive/database.ts`의 migration을 새 schema 생성 방식으로 재작성한다.
-   - 기존 `archives_v1`에서 행을 복사하지 않는다.
-   - 기존 구 테이블이 있으면 명시적으로 삭제하거나 새 초기화 시점에 데이터가 비어 있는 새 테이블로 재생성한다. 운영 적용 전 백업 삭제 확인을 release gate로 둔다.
-   - `PRAGMA user_version`을 새 버전으로 올리고 idempotent 재실행을 보장한다.
-4. user/folder/archive CRUD 및 소유자 predicate를 repository에 구현한다. `createOrGet`와 budget finalization 모두 owner/folder/visibility를 유지해야 한다.
-5. `src/lib/archive/service.ts`를 owner context를 필수로 받도록 변경한다. 등록 과정은 `ownerId`, optional `folderId`, visibility를 전달하고 기본 visibility는 private로 고정한다.
+### #21 — 모바일 전용 하단 내비게이션 및 탭 레이아웃
 
-### Phase B — 인증 동기화와 보호 경계
+- 기존 데스크톱 sidebar를 유지하고 모바일에서는 사이트 등록/공개 탐색/내 보관함의 고정 하단 navigation을 사용한다.
+- safe-area inset, content bottom padding, 충분한 touch target, active `aria-current`, keyboard focus를 보장한다.
+- 폴더 링크는 하단 primary nav를 침범하지 않는 별도 scrollable/접근 가능한 영역으로 두거나 내 보관함 진입 후 제공한다.
+- archive viewer의 읽기/렌더링/원문 tab은 좁은 폭에서 줄바꿈·가로 스크롤·focus 상태를 명시해 잘리지 않게 한다.
+- 데스크톱 sidebar/topbar와 기존 route semantics는 유지한다.
 
-1. `src/lib/auth.ts`의 verify 성공 경로에서 local user upsert를 실행한다. E2E bypass도 deterministic `e2e` 사용자를 upsert할 수 있도록 테스트 DB와 동일한 계약을 적용한다.
-2. `requireAuthenticatedSession`은 원격 및 로컬 상태를 모두 active로 확인하고, 비활성 membership이면 local status를 disabled로 기록한 뒤 로그인/접근 거부 흐름을 실행한다.
-3. `src/proxy.ts`는 공개 경로(`/archives`, `/archives/:id` 및 공개 content/asset)를 통과시키고, 개인 경로와 등록/폴더 관리 경로만 보호하도록 matcher/분기를 재설계한다. proxy는 public/private 데이터 조회를 직접 판단하지 않는다.
-4. Server Action은 매번 `requireAuthenticatedSession`에서 얻은 identity의 userId를 owner context로 사용하며 `ownerId`를 FormData에서 받지 않는다.
-5. auth 장애는 503, 비활성/미인증은 기존 redirect/404 정책으로 명확히 구분한다.
+소유 파일: `src/app/app-shell.tsx`, `src/app/app-navigation.tsx`, `src/app/active-nav-item.tsx`, `src/app/archives/[id]/archive-viewer.tsx`, `src/app/globals.css`, navigation/viewer E2E. #22/#26과 CSS 파일에서 충돌할 수 있어 CSS 블록을 전용 섹션으로 분리한다.
 
-### Phase C — 폴더 관리와 등록 복귀 흐름
+### #28 — 모바일 폴더 및 공개 아카이브 목록 반응형
 
-1. 개인 보관함/폴더 화면을 추가한다. 후보 경로는 `/library`, `/library/[folderId]`로 통일하고, 실제 구현 시 기존 `/archives` 공개 탐색과 충돌하지 않게 한다.
-2. `src/app/actions.ts`에 create/rename/delete folder action을 추가한다.
-   - ownerId는 세션에서만 취득.
-   - 이름은 trim, 빈 문자열/최대 길이/중복을 검증.
-   - 삭제 시 아카이브를 삭제하지 않고 folder_id를 null로 만드는 정책을 기본으로 한다.
-3. `src/app/archive-form.tsx`에 현재 folderId를 hidden/context prop으로 전달하고, visibility 선택은 private 기본값으로 둔다. public 전환은 명시적 선택으로만 가능하게 한다.
-4. `createArchiveAction`은 캡처 성공 후 `/library/[folderId]` 또는 등록 시작 시 전달받은 안전한 내부 return path로 redirect한다. 외부 URL open redirect는 허용하지 않는다.
-5. 실패/중복/재시도 시에도 원래 폴더 컨텍스트가 유지되도록 `ArchiveFormState`에 folder/return context를 포함한다.
-6. `src/app/app-navigation.tsx`, `src/app/app-shell.tsx`, `src/app/breadcrumb.tsx`에 1-depth 폴더 목록과 현재 폴더 상태를 추가한다. 비로그인에는 개인 사이드바 대신 공개 카드 탐색 진입 UI만 제공한다.
+- folder grid가 모바일 1열/필요 시 2열로 자연스럽게 축소되고 긴 이름을 안전하게 줄바꿈한다.
+- 공개 archive card의 제목·URL·tag·date와 CTA가 viewport 밖으로 나가지 않는다.
+- 검색, tag filter, reset, pagination toolbar가 모바일에서 세로/가변 배치되고 버튼 touch target을 유지한다.
+- 빈 결과/빈 폴더 상태는 충분한 padding과 명확한 안내를 갖는다.
 
-### Phase D — 공개 탐색/상세와 카드 UI
+소유 파일: `src/components/library-view.tsx`, `src/app/archives/page.tsx`, `src/app/archives/query.ts`가 필요할 때만, `src/app/globals.css`, responsive E2E. #23과 `folder-view.tsx`/archive card 스타일에서 겹치므로 #28의 공통 card shell을 먼저 확정한다.
 
-1. `/archives`는 `listPublic`만 사용하고 카드형 결과 컴포넌트로 개편한다. 카드에는 title, URL, capturedAt, tags, public 상태만 표시한다.
-2. 사이드바/공개 홈에 카드형 탐색 메뉴를 추가한다. 최소 카드: 공개 아카이브 탐색, 내 보관함/폴더, 새 사이트 등록. 개인 카드는 인증 사용자에게만 노출한다.
-3. `/archives/[id]/page.tsx`는 `findPublicById`를 사용해 비로그인 public 상세를 허용한다. private이면 소유자라도 공개 경로가 아닌 개인 경로에서만 열리도록 분리한다.
-4. `original`, `rendered`, `assets` route도 public/owned service method를 사용한다. public route로 접근할 때는 public saved predicate가 먼저 충족되어야 하며, private content는 owner session이 있는 개인 route에서만 반환한다.
-5. 카드 UI에 사용하는 링크/검색/태그 query는 기존 `src/app/archives/query.ts`의 bounded parsing을 유지하고, public 목록에는 owner/folder 필터를 추가하지 않는다.
-6. metadata/공개 URL에는 email, auth userId, 내부 filesystem 경로를 노출하지 않는다.
+### #23 — 모바일 아카이브 목록 카드 UI
 
-### Phase E — 기존 데이터 삭제 및 운영 반영
+- `src/components/folder-view.tsx`의 desktop table은 유지하고 모바일에서만 동일 데이터를 독립 card list로 표시한다.
+- card에는 제목, original URL, 저장일, visibility select/save, 상세 열기를 제공한다. 긴 URL/title은 layout을 깨지 않게 처리한다.
+- visibility action은 기존 owner-only Server Action을 사용한다. 카드와 테이블에 서로 다른 권한/데이터 계약을 만들지 않는다.
+- desktop/mobile 중복 DOM을 최소화하고, 접근성상 중복 링크/label을 정리한다.
 
-1. 기존 `archives`/`archives_v1` 데이터 이관 코드를 제거한다. 새 schema migration에서 기존 archive rows를 삽입하지 않는다.
-2. 저장 디렉터리의 기존 UUID archive files도 migration에서 자동 재연결하지 않는다. 운영 release 전 DB와 `ARCHIVE_STORAGE_ROOT`를 함께 백업하고, 명시된 삭제 절차로 비운다.
-3. readiness check가 users/folders/new archive schema와 필요한 index를 확인하도록 `src/lib/archive/readiness.ts` 및 테스트를 갱신한다.
-4. README의 인증/공개 목록/기본 private/데이터 삭제 및 백업 설명을 갱신한다. Cloudflare Tunnel 설정은 변경하지 않는다.
+소유 파일: `src/components/folder-view.tsx`, `src/app/globals.css`, folder card component/test, responsive E2E. #28 이후 머지해 공통 mobile card/grid 스타일 충돌을 줄인다.
 
-## 5. 테스트 전략
+## 의존성 및 병렬 실행 그룹
 
-### 단위/DB 통합 테스트
+실행 브랜치와 워크트리는 모두 `feat/issues-21-28`에서 파생한다. 공통 타입/DB/service는 병렬 수정하지 않는다.
 
-- `src/lib/auth.test.ts`
-  - verify 성공 시 active user upsert.
-  - 동일 user 재검증 시 profile/status 갱신.
-  - inactive/suspended membership이 local disabled로 기록됨.
-  - auth unavailable/401은 잘못된 disabled upsert를 하지 않음.
-  - E2E bypass user 계약.
-- `src/lib/archive/database.test.ts`
-  - 새 schema가 기존 archive rows를 복사하지 않음.
-  - 같은 URL을 서로 다른 owner가 각각 생성 가능하고 같은 owner는 idempotent.
-  - private 기본값, explicit public 값 저장.
-  - folder owner mismatch/존재하지 않는 folder 거부.
-  - owner 목록/상세가 다른 owner row를 반환하지 않음.
-  - public 목록/상세/content/asset이 saved + public만 반환.
-  - pending/failed/private는 public에서 404/null.
-  - disabled owner의 생성/개인 조회 거부.
-  - folder 삭제 시 archive는 남고 folder_id만 null.
-  - budget reservation/finalization rollback에서 owner/folder/visibility도 원자적으로 유지.
-- `src/lib/archive/service.test.ts`
-  - owner context 필수.
-  - 캡처 완료 후 저장된 folder/visibility 유지.
-  - 서로 다른 사용자의 동일 normalized URL 격리.
+### Group 0 — 선행 조사/계약 검증
 
-### Server/UI 테스트
+- 상태: pending
+- 대상: #27의 기존 atomic stage/cleanup와 budget finalization, #24의 retry 상태 계약, #25의 동기 action UX 한계 확인
+- 산출물: 구현 전 테스트 케이스 목록과 파일 ownership 확인. 별도 기능 코드는 만들지 않는다.
+- 완료 기준: #27/#24/#25의 상태 전이와 호환성 기준이 이 TODO 및 각 PR 설명에 일치한다.
 
-- `src/app/archives/query.test.ts`: 카드형 공개 query의 q/tag/page bounds 유지.
-- action 테스트: ownerId spoofing 무시, folderId 소유권 검증, private 기본값, 안전한 return path와 폴더 redirect.
-- 컴포넌트 테스트: 비로그인 공개 카드 메뉴, 로그인 1-depth folder menu, private/public 표시, 폴더 등록 폼.
-- 기존 `src/app/archive-form-state.test.ts`에 폴더 context가 오류 반환에서 보존되는지 추가.
+### Group 1 — 저장 기반 (순차)
 
-### E2E
+- PR-27: #27 저장 일관성/자원 정리
+- PR-24: #24 실패 retry (`PR-27` 머지 후)
+- PR-25: #25 진행/결과 UX (`PR-24` 머지 후)
+- 이유: 상태 전이와 cleanup을 먼저 고정해야 retry가 중복 파일/예산을 만들지 않고, UX가 실제 retry 가능성을 정확히 표현할 수 있다.
 
-- fixture auth에서 user A/B와 active/disabled membership을 제어할 수 있도록 `e2e/fixture-server.mjs` 및 Playwright 설정을 확장한다.
-- 비로그인: `/archives` 카드 목록과 public detail/readable/rendered/assets 접근 성공, private 접근 실패.
-- user A: folder 생성 → folder에서 사이트 등록 → 캡처 완료 → 해당 folder로 복귀 → 아카이브가 A의 private 목록에 표시.
-- user B: A의 private archive URL/asset/content 직접 접근 실패, 자신의 동일 URL 등록 가능.
-- public 전환 후 비로그인 탐색/상세 성공, private 재전환 후 공개 접근 차단.
-- membership 비활성화: 다음 verify 후 user disabled, 등록/폴더 관리/개인 조회 거부.
-- 카드형 탐색 메뉴 및 1-depth 사이드바, 모바일 메뉴, redirect 경로 검증.
-- 기존 `e2e/archive-submission.spec.ts`의 전역 등록 기대를 새 인증/폴더 흐름으로 교체하고, 공개 탐색 테스트는 별도 describe로 분리한다.
+### Group 2 — 등록 폼 (순차)
 
-## 6. 마이그레이션·배포 전략
+- PR-26: #26 유동형 form layout
+- PR-22: #22 폴더 생성 modal (`PR-26` 머지 후)
+- 이유: 두 PR이 `archive-form.tsx`를 만지므로 layout wrapper/class를 먼저 고정해 modal 기능 PR의 충돌을 줄인다.
 
-1. 애플리케이션 코드와 DB schema 변경을 한 릴리스 단위로 배포한다. 구 archive 데이터 호환을 목표로 하지 않는다.
-2. 배포 전 앱 중지 → `/data` 전체 백업 → DB 및 archive storage 삭제/초기화 확인 → 새 이미지 기동 순서로 진행한다. 기존 `scripts/deploy.sh`의 백업/rollback 정책을 유지하되, schema가 비가역적임을 release checklist에 표시한다.
-3. 새 앱 기동 후 readiness에서 `users`, `folders`, 새 `archives` schema/index, storage root 권한을 확인한다.
-4. 첫 로그인으로 user upsert, private archive 생성, folder 복귀, public 전환/비로그인 조회를 smoke한다.
-5. 실패 시 새 데이터가 없는 초기 상태에서는 이전 이미지/백업으로 rollback할 수 있지만, 새 schema에 기록된 데이터는 이전 이미지에서 읽을 수 없으므로 rollback 전 데이터 보존/폐기 결정을 명시한다.
-6. 실제 Tunnel ingress나 Cloudflare 설정은 변경하지 않는다.
+### Group 3 — navigation/list UI (부분 병렬 후 순차 통합)
 
-## 7. 보안 검토 체크리스트
+- PR-21: #21 mobile bottom nav + viewer tabs
+- PR-28: #28 folder/public list responsive
+- PR-23: #23 folder archive mobile cards (`PR-28` 머지 후)
+- PR-21과 PR-28은 서로 다른 컴포넌트를 우선 소유한다. 둘 다 `globals.css`에 추가하는 경우 전용 comment block을 분리한다. PR-23은 `folder-view.tsx`를 독점해 #28과 직접 충돌하지 않게 한다.
 
-- 모든 owner-aware SQL에 `owner_id = ?`를 포함하고, ID-only repository 메서드는 private 경로에서 사용하지 않는다.
-- 공개 SQL은 `visibility='public' AND status='saved'`를 항상 포함하며, 인증 실패 시 private 결과로 fallback하지 않는다.
-- folderId, archiveId, returnTo, visibility는 클라이언트 입력이므로 세션 owner와 DB에서 재검증한다.
-- public/private 변경 action이 필요하면 active owner만 변경할 수 있고, userId/ownerId를 payload로 받지 않는다.
-- raw SQLite error, 내부 경로, auth 응답 전체를 UI/로그에 노출하지 않는다.
-- 파일 route는 서비스 authorization을 통과한 뒤에만 storage를 읽으며 기존 UUID/asset key 형식 검증을 유지한다.
-- 외부 redirect, XSS, 원격 asset/CSP 정책은 기존 방어를 유지한다.
-- 계정 disabled 전환은 새 작업을 막지만 기존 private archive를 다른 사용자에게 공개하거나 삭제하지 않는다.
+### 통합 순서
 
-## 8. 실행 순서와 완료 기준
+1. Group 0 완료
+2. Group 1: #27 → #24 → #25
+3. Group 2: #26 → #22
+4. Group 3: #21과 #28을 병렬 구현/CI 후 통합 → #23 구현/CI
+5. 모든 PR 통합 후 전체 lint/typecheck/unit/E2E/build 및 Docker/health smoke
 
-- [ ] Phase A 도메인 타입, schema, repository 계약
-- [ ] Phase B verify upsert 및 disabled 보호 경계
-- [ ] Phase C folder CRUD, folder-scoped registration, completion return
-- [ ] Phase D public/private route 분리와 카드형 탐색 UI
-- [ ] Phase E 삭제 migration, readiness, README/운영 절차
-- [ ] 단위/통합/E2E 테스트 전환 및 추가
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build`
-- [ ] `docker compose config --quiet`, production image readiness/Chromium smoke
-- [ ] review-gate에서 owner isolation, public query separation, migration irreversibility 검토
-- [ ] 구현 완료 후 `graphify update .` 실행
+## PR별 브랜치와 완료 기준
 
-## 9. 예상 변경 파일군
+| PR | 이슈 | 브랜치 | 선행 | 핵심 완료 기준 |
+| --- | --- | --- | --- | --- |
+| PR-27 | #27 | `feat/issue-27-storage-consistency` | Group 0 | 실패/동시성/예산 테스트 통과, 기존 saved 데이터 호환 |
+| PR-24 | #24 | `feat/issue-24-archive-retry` | PR-27 | 동일 id·owner-only·atomic claim·retry race 테스트 통과 |
+| PR-25 | #25 | `feat/issue-25-archive-status-ux` | PR-24 | pending/성공/오류별 UI와 재시도 CTA E2E 통과 |
+| PR-26 | #26 | `feat/issue-26-fluid-registration-form` | Group 0 | mobile/tablet/desktop overflow 없는 form viewport 검증 |
+| PR-22 | #22 | `feat/issue-22-folder-modal` | PR-26 | modal a11y, Escape/focus, server owner validation, 자동 선택 E2E |
+| PR-21 | #21 | `feat/issue-21-mobile-navigation-tabs` | Group 0 | bottom nav touch/focus/active state와 viewer tabs 모바일 검증 |
+| PR-28 | #28 | `feat/issue-28-responsive-lists` | Group 0 | folder/public/search/pagination/empty 상태 모바일 검증 |
+| PR-23 | #23 | `feat/issue-23-mobile-archive-cards` | PR-28 | mobile card + desktop table, visibility/detail action E2E |
 
-- 인증: `src/lib/auth.ts`, `src/lib/auth.test.ts`, `src/proxy.ts`
-- 도메인/DB: `src/lib/archive/types.ts`, `src/lib/archive/database.ts`, `src/lib/archive/database.test.ts`, `src/lib/archive/service.ts`, `src/lib/archive/service.test.ts`, `src/lib/archive/readiness.ts`
-- 앱 경계: `src/app/actions.ts`, `src/app/archive-form.tsx`, `src/app/archive-form-state.ts`, `src/app/page.tsx`, `src/app/app-shell.tsx`, `src/app/app-navigation.tsx`, `src/app/breadcrumb.tsx`
-- 공개/개인 화면: `src/app/archives/page.tsx`, `src/app/archives/query.ts`, `src/app/archives/[id]/page.tsx`, `src/app/archives/[id]/original/route.ts`, `src/app/archives/[id]/rendered/route.ts`, `src/app/archives/[id]/assets/[key]/route.ts`, 신규 `/library` 페이지/컴포넌트
-- 스타일/아이콘: `src/app/globals.css`, `src/app/icons.tsx`
-- 검증/운영: `e2e/*.spec.ts`, `e2e/fixture-server.mjs`, `README.md`
+각 PR 공통 완료 기준:
 
-## 결정이 필요한 구현 세부사항
+- [ ] 관련 단위/통합 테스트를 먼저 RED로 추가하고 최소 구현 후 GREEN, 리팩터한다.
+- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` 통과
+- [ ] 해당 PR의 Playwright viewport/E2E 통과
+- [ ] 보안/owner boundary, public/private read boundary 회귀 없음
+- [ ] CI가 약 4분 소요되는 동안 로그를 확인하고 실패 시 원인 수정 후 재실행
+- [ ] review-gate의 correctness/security pass와 ponytail over-engineering pass 완료
+- [ ] PR body에 변경 파일, 테스트 명령, CI run, 남은 위험을 기록
+- [ ] 통합 후 해당 이슈가 실제로 해결됐는지 acceptance criteria를 체크하고 닫는다.
 
-- private archive의 개인 화면 경로를 `/library`로 확정할지, `/archives/mine`으로 할지 구현 시작 전에 하나로 고정한다. 이 계획은 공개 `/archives`와의 보안 경계가 분명한 `/library`를 기본안으로 한다.
-- folder 삭제 시 아카이브를 루트로 이동하는 정책을 기본으로 포함했다. 삭제와 함께 아카이브 삭제가 필요하면 별도 명시가 필요하다.
-- archive visibility 변경 UI를 등록 후 개인 상세에 둘지 폴더 목록 bulk action으로 둘지 정한다. 어느 경우에도 active owner-only action으로 구현한다.
+## 파일 ownership / 충돌 회피
+
+- 저장 핵심: `src/lib/archive/{types,database,service,storage}.ts`는 Group 1만 수정한다.
+- 상태 UX: `src/app/archive-form-state.ts`, capture form 결과 표시, retry CTA는 #25가 소유한다. #24는 action/service hook만 추가한다.
+- 등록 form: #26은 layout/class wrapper, #22는 modal/state/owner action을 소유한다.
+- shell/nav: #21은 `app-shell.tsx`, `app-navigation.tsx`, `active-nav-item.tsx`, viewer tabs를 소유한다.
+- 공개/folder list: #28은 `library-view.tsx`, 공개 list toolbar/card shell을 소유하고, #23은 `folder-view.tsx` mobile card를 소유한다.
+- `globals.css`는 feature별 named block을 사용해 cherry-pick/merge 시 같은 줄을 동시에 수정하지 않는다.
+- 공통 타입·utility를 병렬 PR에서 임의로 확장하지 말고, 필요하면 선행 PR 또는 해당 도메인 소유 PR에서만 변경한다.
+
+## 테스트 전략
+
+### Unit/integration
+
+- #27: `service.test.ts`, `storage.test.ts`, `database.test.ts`에 stage cleanup, reservation release/finalize, partial file, missing content, reopen, concurrent capture를 추가한다.
+- #24: repository conditional retry claim, retryable allowlist, same-id/idempotency, owner mismatch, simultaneous retry를 테스트한다.
+- #25: `archive-form-state.test.ts`에 모든 failure code/next action mapping, pending state contract, folder/field state preservation을 추가한다.
+- #22/#26: modal state reducer/validation 및 semantic form rendering 테스트를 추가한다. server action은 owner spoofing, duplicate/invalid folder name을 검증한다.
+- #21/#28/#23: 가능하면 순수 formatter/class contract를 테스트하고, 레이아웃 핵심은 Playwright viewport로 검증한다.
+
+### E2E viewport journeys
+
+- viewport: 대표 mobile `390x844`, narrow mobile `320x700`, tablet `768x1024`, desktop `1280x800`.
+- #21: mobile bottom nav 각 링크, active aria state, keyboard focus, viewer tabs의 clipped/overflow 없음.
+- #22/#26: 등록 → 새 폴더 modal → 생성 → select 자동 반영 → submit; 각 viewport에서 URL/button/label/error overflow 없음.
+- #23/#28: folder table/card 전환, 긴 title/URL/folder, public search/tag/reset/pagination, empty state.
+- #24/#25/#27: fixture capture fail → detail failure state → retry → same archive saved; duplicate click/concurrent retry; forced asset/storage/quota failure cleanup.
+- 인증 fixture는 기존 `e2e/fixture-server.mjs`/Playwright 설정을 확장하되, 실제 production secret이나 Cloudflare Tunnel을 테스트에 넣지 않는다.
+
+## 검증/리뷰/배포 완료 기준
+
+- [ ] 각 PR CI green 및 required checks 통과
+- [ ] 실패 CI는 로그를 확인하고 코드/테스트를 수정한 뒤 재실행; green 전 머지 금지
+- [ ] 통합 브랜치에서 `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm build`
+- [ ] `docker compose config --quiet` 및 이미지 기동/readiness `/health/ready` 확인
+- [ ] public `/archives` 200, 인증 보호된 `/`/`/library` 흐름, archive detail/readable/rendered/assets smoke
+- [ ] owner isolation과 private archive content/asset 직접 접근 실패 smoke
+- [ ] `review-gate` correctness/security → ponytail cleanup 순서로 최종 리뷰
+- [ ] `graphify update .` 실행 후 graph 변경을 확인
+- [ ] release skill의 기존 Docker/backup/rollback 절차에 따라 main 배포
+- [ ] 배포 후 모바일/desktop public smoke 및 실제 archive retry/folder modal 흐름 확인
+- [ ] 모든 acceptance criteria 검증 후 #21~#28 이슈 close
+- [ ] 모든 작업과 워크트리 정리 후 `tmp/TODO.md` 삭제 (dev-workflow 완료 절차)
+
+## 범위 밖 / 안전 제약
+
+- Cloudflare Tunnel ingress/DNS를 애플리케이션 초기화나 PR에서 변경하지 않는다.
+- #25를 위해 장시간 비동기 queue/worker를 새로 도입하지 않는다. 필요성이 확인되면 별도 이슈로 분리한다.
+- #27에서 기존 archive rows/files를 삭제하거나 비가역 schema migration을 하지 않는다.
+- ownerId, folderId, archiveId, returnTo는 클라이언트 입력을 신뢰하지 않으며 서버 session/DB에서 검증한다.
