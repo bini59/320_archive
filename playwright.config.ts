@@ -6,6 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
 const e2eStorageRoot = path.join(os.tmpdir(), `320-archive-e2e-${process.pid}`);
 
 export default defineConfig({
+  retries: process.env.CI ? 2 : 0,
   testDir: "./e2e",
   expect: { timeout: 15_000 },
   fullyParallel: false,
