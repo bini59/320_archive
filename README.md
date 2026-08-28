@@ -178,8 +178,8 @@ Cloudflare Tunnel 컨테이너, 공개 도메인의 ingress, TLS 및 엣지 rate
 
 ### Automated CI/CD
 
-PR과 `main` push는 GitHub-hosted ARM64 runner에서 lint, typecheck, 단위·통합 테스트,
-Playwright E2E, production build, Docker build와 final-image Chromium launch smoke를 실행합니다. 성공한 `main` commit은
+변경된 코드가 포함된 PR과 `main` push는 GitHub-hosted ARM64 runner에서 lint, typecheck, 단위·통합 테스트,
+Playwright E2E, production build, Docker build와 final-image Chromium launch smoke를 실행합니다. Markdown 및 `docs/`만 변경된 PR이나 `main` push는 검증 workflow를 건너뜁니다. 검증에 성공한 `main` commit은
 `ghcr.io/bini59/320_archive:sha-<full-commit-sha>` immutable tag와 편의용 `latest` tag로
 게시됩니다. 배포에는 SHA tag만 사용합니다.
 
