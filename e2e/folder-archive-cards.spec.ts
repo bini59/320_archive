@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ request }) => {
+  await request.get("http://127.0.0.1:3101/reset-requests");
+});
+
 async function createFolderAndArchive(page: Page) {
   await page.goto("/library");
   await page.getByLabel("새 폴더 이름").fill(`카드 테스트 ${Date.now()}`);
