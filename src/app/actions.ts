@@ -17,6 +17,7 @@ import { TagValidationError } from "@/lib/archive/tags";
 import {
   formErrorForCaptureFailure,
   formErrorForInvalidTags,
+  isRetryableFormFailure,
   type ArchiveFormState,
 } from "./archive-form-state";
 
@@ -58,6 +59,28 @@ export async function createArchiveAction(
   const returnTo = formData.get("returnTo");
   const destination = typeof returnTo === "string" && /^\/library(?:\/[^/]+)?$/.test(returnTo) ? returnTo : `/archives/${archiveId}`;
   redirect(destination);
+}
+
+export async function retryArchiveAction(
+  _previousState: ArchiveFormState,
+  formData: FormData,
+): Promise<ArchiveFormState> {
+  const identity = await requireAuthenticatedSession();
+  const archiveId = formData.get("archiveId");
+  if (typeof archiveId !== "string" || !archiveId) return { error: "아카이브를 찾을 수 없습니다." };
+
+  const result = await getArchiveService().retry(identity.userId, archiveId);
+  if (!result) return { error: "아카이브를 찾을 수 없습니다." };
+  if (result.archive.status === "pending") return { error: "이미 캡처 중입니다. 잠시 후 새로고침해 주세요." };
+  if (result.archive.status === "failed") {
+    if (isRetryableFormFailure(result.archive.failureCode)) {
+      return formErrorForCaptureFailure(result.archive.failureCode) ?? { error: "잠시 후 다시 시도해 주세요." };
+    }
+    return { error: "이 아카이브는 다시 시도할 수 없습니다." };
+  }
+
+  revalidateTag("public-archives", "max");
+  redirect(`/archives/${result.archive.id}`);
 }
 
 export async function createFolderAction(formData: FormData): Promise<void> {
