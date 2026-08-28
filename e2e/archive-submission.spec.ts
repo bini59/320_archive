@@ -8,10 +8,7 @@ async function submit(page: Page, url: string) {
   await page.goto("/");
   await page.getByLabel(/URL/i).fill(url);
   await page.getByRole("button", { name: /아카이브 추가|보관|저장|제출|캡처/ }).click();
-  await expect(page).toHaveURL(/\/library(?:\/[^/]+)?$/);
-  const archiveLink = page.locator('a[href^="/archives/"]').first();
-  await expect(archiveLink).toBeVisible();
-  await archiveLink.click();
+  await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
 }
 
 test("shows saved metadata after synchronous fixture capture", async ({ page }) => {

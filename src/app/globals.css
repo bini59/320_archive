@@ -147,6 +147,15 @@ h1, h2, h3, p { margin: 0; }
 .card + .card { margin-top: 12px; }
 .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 500; }
 .card-body { padding: 16px; }
+.folder-section { margin-top: 28px; }
+.section-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.section-heading h2 { font-size: 15px; font-weight: 600; }
+.folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.folder-card { position: relative; display: flex; flex-direction: column; min-height: 132px; padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--fg); }
+.folder-card:hover { border-color: var(--border-strong); background: var(--panel-2); text-decoration: none; }
+.folder-icon { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 20px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
+.folder-name { overflow: hidden; padding-right: 22px; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.folder-arrow { position: absolute; right: 18px; bottom: 17px; color: var(--fg-3); }
 
 /* controls */
 .btn {
@@ -282,6 +291,8 @@ table.data tbody tr:hover { background: var(--panel-2); }
 .archive-form { max-width: 620px; }
 .form-row { display: flex; gap: 8px; }
 .form-row .input { flex: 1; min-width: 0; }
+.form-row .field { flex: 1; min-width: 0; }
+.form-row .field .input { width: 100%; }
 .view-options { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .view-option { display: flex; align-items: center; gap: 8px; padding: 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--fg-2); font-size: 12.5px; cursor: pointer; }
 .view-option-active { border-color: var(--accent); color: var(--fg); }

@@ -48,7 +48,7 @@ export async function createArchiveAction(
   }
 
   const returnTo = formData.get("returnTo");
-  const destination = typeof returnTo === "string" && /^\/library(?:\/[^/]+)?$/.test(returnTo) ? returnTo : "/library";
+  const destination = typeof returnTo === "string" && /^\/library(?:\/[^/]+)?$/.test(returnTo) ? returnTo : `/archives/${archiveId}`;
   redirect(destination);
 }
 

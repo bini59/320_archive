@@ -15,5 +15,5 @@ export async function FolderNavigation() {
 }
 
 export async function AppNavigation({ mobile = false }: { mobile?: boolean }) {
-  return <><nav aria-label="주 메뉴" className={mobile ? "nav nav-mobile" : "nav"}><ActiveNavItem href="/"><span>사이트 등록</span></ActiveNavItem><ActiveNavItem href="/archives"><span>공개 탐색</span></ActiveNavItem><ActiveNavItem href="/library"><span>내 보관함</span></ActiveNavItem></nav><FolderNavigation /></>;
+  return <><nav aria-label="주 메뉴" className={mobile ? "nav nav-mobile" : "nav"}><ActiveNavItem href="/"><span>사이트 등록</span></ActiveNavItem><ActiveNavItem href="/archives"><span>공개 탐색</span></ActiveNavItem><ActiveNavItem exact href="/library"><span>내 보관함</span></ActiveNavItem></nav><FolderNavigation /></>;
 }
