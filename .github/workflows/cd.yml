@@ -40,7 +40,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.image.outputs.value }}
-            ghcr.io/${GITHUB_REPOSITORY,,}:latest
+            ghcr.io/${{ github.repository }}:latest
 
   deploy:
     needs: publish
