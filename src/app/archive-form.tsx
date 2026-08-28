@@ -1,12 +1,20 @@
 "use client";
 
 import { useActionState } from "react";
-import {
-  createArchiveAction,
-} from "./actions";
+import { createArchiveAction } from "./actions";
 import { initialArchiveFormState } from "./archive-form-state";
 
-export function ArchiveForm({ folderId = null, returnTo = null }: { folderId?: string | null; returnTo?: string | null } = {}) {
+type ArchiveFormProps = {
+  folders: { id: string; name: string }[];
+  folderId?: string | null;
+  returnTo?: string | null;
+};
+
+export function ArchiveForm({
+  folders,
+  folderId = null,
+  returnTo = null,
+}: ArchiveFormProps) {
   const [state, formAction, pending] = useActionState(
     createArchiveAction,
     initialArchiveFormState,
@@ -14,8 +22,20 @@ export function ArchiveForm({ folderId = null, returnTo = null }: { folderId?: s
 
   return (
     <form action={formAction}>
-      {folderId ? <input name="folderId" type="hidden" value={folderId} /> : null}
       {returnTo ? <input name="returnTo" type="hidden" value={returnTo} /> : null}
+      <div className="form-row folder-picker-row">
+        <label className="field">
+          <span className="field-label">보관 폴더</span>
+          <select aria-describedby="archive-folder-error" aria-invalid={state.folderError ? true : undefined} className="input" defaultValue={folderId ?? ""} id="archive-folder" name="folderId" onChange={(event) => { if (event.target.value === "__new__") window.location.assign("/library?returnTo=%2F"); }} required>
+            <option disabled value="">폴더를 선택하세요</option>
+            {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+            <option value="__new__">+ 새 폴더 만들기</option>
+          </select>
+        </label>
+      </div>
+      <p aria-live="polite" className="mt-2" id="archive-folder-error">
+        {state.folderError ? <span className="error">{state.folderError}</span> : null}
+      </p>
       <label className="field-label" htmlFor="archive-visibility">공개 설정</label>
       <select className="input" defaultValue="private" id="archive-visibility" name="visibility"><option value="private">비공개</option><option value="public">공개</option></select>
       <label className="field-label" htmlFor="archive-url">

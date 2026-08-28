@@ -288,8 +288,10 @@ table.data tbody tr:hover { background: var(--panel-2); }
 .palette-item kbd { margin-left: auto; }
 
 /* forms */
-.archive-form { max-width: 620px; }
+.archive-form { width: min(100%, 900px); }
 .form-row { display: flex; gap: 8px; }
+.folder-picker-row { align-items: end; }
+.folder-picker-row .field { flex: 1; min-width: 0; }
 .form-row .input { flex: 1; min-width: 0; }
 .form-row .field { flex: 1; min-width: 0; }
 .form-row .field .input { width: 100%; }
@@ -311,6 +313,7 @@ table.data tbody tr:hover { background: var(--panel-2); }
   .page { padding: 20px 14px 48px; }
   .cmdk-btn { min-width: auto; }
   .view-options { grid-template-columns: minmax(0, 1fr); }
+  .folder-picker-row { align-items: stretch; flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

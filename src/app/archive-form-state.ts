@@ -2,10 +2,11 @@ import type { CaptureFailureCode } from "@/lib/archive/types";
 
 export interface ArchiveFormState {
   error: string | null;
+  folderError?: string | null;
   tagError?: string | null;
 }
 
-export const initialArchiveFormState: ArchiveFormState = { error: null };
+export const initialArchiveFormState: ArchiveFormState = { error: null, folderError: null };
 
 const retryableCaptureErrors: Partial<Record<CaptureFailureCode, string>> = {
   overloaded: "현재 캡처 요청이 많습니다. 잠시 후 다시 시도해 주세요.",

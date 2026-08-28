@@ -3,8 +3,9 @@ import { getArchiveService } from "@/lib/archive/service";
 import { createFolderAction } from "@/app/actions";
 import { BoxIcon } from "@/app/icons";
 
-export default async function LibraryPage() {
+export default async function LibraryPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
   const identity = await requireAuthenticatedSession();
+  const { returnTo } = await searchParams;
   const folders = getArchiveService().listFolders(identity.userId);
 
   return (
@@ -19,6 +20,7 @@ export default async function LibraryPage() {
         <div className="card-head">새 폴더</div>
         <div className="card-body">
           <form action={createFolderAction} className="form-row">
+            {returnTo === "/" ? <input name="returnTo" type="hidden" value="/" /> : null}
             <label className="field">
               <span className="field-label">새 폴더 이름</span>
               <input className="input" name="name" placeholder="새 폴더 이름" maxLength={100} required />

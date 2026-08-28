@@ -26,16 +26,22 @@ export async function createArchiveAction(
   const identity = await requireAuthenticatedSession();
   const value = formData.get("url");
   const tags = formData.get("tags");
+  const folderId = formData.get("folderId");
+  if (typeof folderId !== "string" || !folderId) {
+    return { error: null, folderError: "아카이브를 보관할 폴더를 선택해 주세요.", tagError: null };
+  }
+  if (!getArchiveService().listFolders(identity.userId).some((folder) => folder.id === folderId)) {
+    return { error: null, folderError: "선택한 폴더를 찾을 수 없습니다.", tagError: null };
+  }
   if (typeof value !== "string" || value.trim() === "") {
-    return { error: "보관할 URL을 입력해 주세요.", tagError: null };
+    return { error: "보관할 URL을 입력해 주세요.", folderError: null, tagError: null };
   }
   if (typeof tags !== "string") return formErrorForInvalidTags();
 
   let archiveId: string;
   try {
-    const folderId = formData.get("folderId");
     const visibility = formData.get("visibility") === "public" ? "public" : "private";
-    const result = await getArchiveService().create(value.trim(), tags, identity.userId, typeof folderId === "string" && folderId ? folderId : null, visibility);
+    const result = await getArchiveService().create(value.trim(), tags, identity.userId, folderId, visibility);
     const formError = formErrorForCaptureFailure(result.archive.failureCode);
     if (formError) return formError;
     archiveId = result.archive.id;
@@ -56,8 +62,9 @@ export async function createFolderAction(formData: FormData): Promise<void> {
   const identity = await requireAuthenticatedSession();
   const name = formData.get("name");
   if (typeof name !== "string" || !name.trim()) return;
-  getArchiveService().createFolder(identity.userId, name);
-  redirect("/library");
+  const folder = getArchiveService().createFolder(identity.userId, name);
+  const returnTo = formData.get("returnTo");
+  redirect(returnTo === "/" ? `/?folderId=${encodeURIComponent(folder.id)}` : "/library");
 }
 
 export async function renameFolderAction(formData: FormData): Promise<void> {
