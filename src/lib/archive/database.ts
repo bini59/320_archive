@@ -66,7 +66,19 @@ export class SqliteArchiveRepository implements ArchiveRepository {
     if (!this.findUser(ownerId)) this.upsertUser({ id: ownerId, email: null, name: ownerId, avatarUrl: null, membershipRole: "member", membershipStatus: "active" });
     if (i.folderId && !this.database.prepare("SELECT id FROM folders WHERE id=? AND owner_id=?").get(i.folderId, ownerId)) throw new Error("Invalid folder");
     this.database.exec("BEGIN IMMEDIATE");
-    try { const result = this.database.prepare("INSERT OR IGNORE INTO archives(id,owner_id,folder_id,visibility,original_url,normalized_url,status,created_at) VALUES(?,?,?,?,?,?,?,?)").run(randomUUID(), ownerId, i.folderId ?? null, i.visibility ?? (i.ownerId ? "private" : "public"), i.originalUrl, i.normalizedUrl, "pending", new Date().toISOString()); const row = this.database.prepare("SELECT * FROM archives WHERE owner_id=? AND normalized_url=?").get(ownerId, i.normalizedUrl) as Row; this.addTags(String(row.id), i.tags ?? []); this.database.exec("COMMIT"); return { archive: archive(row, this.tags(String(row.id))), created: Number(result.changes) === 1 }; } catch (error) { this.database.exec("ROLLBACK"); throw error; }
+    try {
+      const result = this.database.prepare("INSERT OR IGNORE INTO archives(id,owner_id,folder_id,visibility,original_url,normalized_url,status,created_at) VALUES(?,?,?,?,?,?,?,?)").run(randomUUID(), ownerId, i.folderId ?? null, i.visibility ?? (i.ownerId ? "private" : "public"), i.originalUrl, i.normalizedUrl, "pending", new Date().toISOString());
+      let row = this.database.prepare("SELECT * FROM archives WHERE owner_id=? AND normalized_url=?").get(ownerId, i.normalizedUrl) as Row;
+      let created = Number(result.changes) === 1;
+      if (!created && row.status === "failed") {
+        this.database.prepare("UPDATE archives SET status='pending',failure_code=NULL,failure_message=NULL WHERE id=? AND status='failed'").run(row.id);
+        row = this.database.prepare("SELECT * FROM archives WHERE id=?").get(row.id) as Row;
+        created = true;
+      }
+      this.addTags(String(row.id), i.tags ?? []);
+      this.database.exec("COMMIT");
+      return { archive: archive(row, this.tags(String(row.id))), created };
+    } catch (error) { this.database.exec("ROLLBACK"); throw error; }
   }
   findById(id: string) { const r = this.database.prepare("SELECT * FROM archives WHERE id=?").get(id) as Row | undefined; return r ? archive(r, this.tags(id)) : null; }
   findOwnedById(ownerId: string, id: string) { const r = this.database.prepare("SELECT * FROM archives WHERE id=? AND owner_id=?").get(id, ownerId) as Row | undefined; return r ? archive(r, this.tags(id)) : null; }
