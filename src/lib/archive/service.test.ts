@@ -206,6 +206,27 @@ describe("ArchiveService synchronous capture", () => {
     });
   });
 
+  it("allows a rate-limited URL to be retried after the limit is cleared", async () => {
+    const first = await fixture({ maxSubmissions: 1 });
+    expect((await first.service.create("https://example.com/seed")).archive.status).toBe("saved");
+    const blocked = await first.service.create("https://example.com/blocked");
+    expect(blocked.archive).toMatchObject({ status: "failed", failureCode: "rate_limited" });
+    first.service.close();
+    services.splice(services.indexOf(first.service), 1);
+
+    const capture = new StubCapture({
+      bytes: Buffer.from("<html><body>retried</body></html>"),
+      contentType: "text/html",
+      finalUrl: "https://example.com/blocked",
+    });
+    const second = await fixture({ databasePath: first.databasePath, maxSubmissions: 10, capture });
+
+    const retried = await second.service.create("https://example.com/blocked");
+
+    expect(retried).toMatchObject({ created: true, archive: { status: "saved" } });
+    expect(capture.calls).toBe(1);
+  });
+
   it("persists the total byte quota across a process-style reopen", async () => {
     const first = await fixture({ maxStoredBytes: 30, reserveBytes: 15, capture: new StubCapture({ bytes: Buffer.from("<html>1</html>"), contentType: "text/html", finalUrl: "https://example.com/one" }) });
     expect((await first.service.create("https://example.com/one")).archive.status).toBe("saved");
