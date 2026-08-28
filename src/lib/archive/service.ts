@@ -68,13 +68,17 @@ export class ArchiveService {
         byteLength: page.bytes.byteLength,
       };
 
-      await this.store.save(result.archive.id, page.bytes, readable, snapshot, assets, rendered);
+      const manifest = await this.store.save(result.archive.id, page.bytes, readable, snapshot, assets, rendered);
+      await this.store.read(result.archive.id, "original");
+      await this.store.read(result.archive.id, "readable");
+      if (rendered) await this.store.read(result.archive.id, "rendered");
+      for (const asset of manifest.assets) await this.store.readAsset(result.archive.id, asset.key);
       const saved = reservation.finalizeSaved({
         archiveId: result.archive.id,
         snapshot,
         indexText: extractReadableText(readable),
         tags,
-        byteLength: page.bytes.byteLength + assetBytes + (rendered?.byteLength ?? 0),
+        byteLength: manifest.storedByteLength ?? page.bytes.byteLength + assetBytes + (rendered?.byteLength ?? 0),
       });
       if (!saved) {
         await this.store.cleanup(result.archive.id);

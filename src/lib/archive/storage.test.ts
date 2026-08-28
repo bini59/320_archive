@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -29,6 +29,24 @@ describe("LocalSnapshotStore", () => {
     expect(await readFile(path.join(root, id, "rendered.html"), "utf8")).toBe("rendered");
   });
 
+  it("does not replace an existing archive when saving the same id", async () => {
+    const { root, store } = await fixture();
+    await store.save(id, Buffer.from("original"), Buffer.from("readable"), snapshot);
+
+    await expect(store.save(id, Buffer.from("replacement"), Buffer.from("readable"), snapshot)).rejects.toBeDefined();
+    expect(await readFile(path.join(root, id, "original.html"), "utf8")).toBe("original");
+    expect((await readdir(root)).filter((name) => name.endsWith(".stage"))).toEqual([]);
+  });
+
+  it("cleans the final archive when an error occurs after rename", async () => {
+    const { root } = await fixture();
+    const store = new LocalSnapshotStore(root, { afterRename: () => { throw new Error("flush failed"); } });
+
+    await expect(store.save(id, Buffer.from("original"), Buffer.from("readable"), snapshot)).rejects.toThrow("flush failed");
+    await expect(readdir(path.join(root, id))).rejects.toMatchObject({ code: "ENOENT" });
+    expect((await readdir(root)).filter((name) => name.endsWith(".stage"))).toEqual([]);
+  });
+
   it("reports a missing legacy readable file with a typed error", async () => {
     const { root, store } = await fixture();
     await mkdir(path.join(root, id));
@@ -36,6 +54,15 @@ describe("LocalSnapshotStore", () => {
   });
 
   it("stores digest-keyed assets and only reads manifest members",async()=>{const {root,store}=await fixture();const manifest=await store.save(id,Buffer.from("o"),Buffer.from("r"),snapshot,[{originalUrl:"https://example.com/a.png",finalUrl:"https://cdn.example/a.png",mimeType:"image/png",bytes:Buffer.from([1,2,3])}]);expect(manifest.assets[0].key).toMatch(/^[a-f0-9]{64}\.png$/);expect((await store.readAsset(id,manifest.assets[0].key)).bytes).toEqual(Buffer.from([1,2,3]));await writeFile(path.join(root,id,"assets","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png"),"secret");await expect(store.readAsset(id,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png")).rejects.toBeInstanceOf(SnapshotContentNotFoundError);});
+
+  it("returns the bytes actually persisted, counting a deduplicated asset once", async () => {
+    const { root, store } = await fixture();
+    const asset = { originalUrl: "https://example.com/a.png", finalUrl: "https://cdn.example/a.png", mimeType: "image/png" as const, bytes: Buffer.from([1, 2, 3]) };
+    const manifest = await store.save(id, Buffer.from("o"), Buffer.from("r"), snapshot, [asset, asset]);
+    const files = ["original.html", "readable.html", "snapshot.json", "assets.json"];
+    const fileBytes = (await Promise.all(files.map(async (file) => (await stat(path.join(root, id, file))).size))).reduce((sum, size) => sum + size, 0);
+    expect(manifest.storedByteLength).toBe(fileBytes + asset.bytes.byteLength);
+  });
 
   it("rejects traversal IDs and symbolic content files", async () => {
     const { root, store } = await fixture();

@@ -207,12 +207,12 @@ describe("ArchiveService synchronous capture", () => {
   });
 
   it("persists the total byte quota across a process-style reopen", async () => {
-    const first = await fixture({ maxStoredBytes: 30, reserveBytes: 15, capture: new StubCapture({ bytes: Buffer.from("<html>1</html>"), contentType: "text/html", finalUrl: "https://example.com/one" }) });
+    const first = await fixture({ maxStoredBytes: 500, reserveBytes: 100, capture: new StubCapture({ bytes: Buffer.from("<html>1</html>"), contentType: "text/html", finalUrl: "https://example.com/one" }) });
     expect((await first.service.create("https://example.com/one")).archive.status).toBe("saved");
     first.service.close();
     services.splice(services.indexOf(first.service), 1);
 
-    const second = await fixture({ databasePath: first.databasePath, maxStoredBytes: 30, reserveBytes: 15, capture: new StubCapture({ bytes: Buffer.from("<html>content exceeding remaining quota</html>"), contentType: "text/html", finalUrl: "https://example.com/two" }) });
+    const second = await fixture({ databasePath: first.databasePath, maxStoredBytes: 500, reserveBytes: 100, capture: new StubCapture({ bytes: Buffer.from("<html>content exceeding remaining quota</html>"), contentType: "text/html", finalUrl: "https://example.com/two" }) });
     expect(await second.service.create("https://example.com/two")).toMatchObject({
       archive: { status: "failed", failureCode: "quota_exceeded" },
     });
