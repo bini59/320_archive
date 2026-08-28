@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 function label(pathname: string): string {
   if (pathname === "/") return "사이트 등록";
@@ -16,11 +17,11 @@ export function Breadcrumb() {
 
   return (
     <nav aria-label="현재 위치" className="crumb mono">
-      <a href="/">archive</a>
+      <Link href="/">archive</Link>
       {detail ? (
         <>
           <span aria-hidden="true">/</span>
-          <a href="/archives">공개 아카이브</a>
+          <Link href="/archives">공개 아카이브</Link>
         </>
       ) : null}
       <span aria-hidden="true">/</span>

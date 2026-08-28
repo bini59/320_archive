@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { logoutAction } from "./actions";
 import { ExternalLinkIcon, LogOutIcon, SettingsIcon, UserIcon } from "./icons";
+import Link from "next/link";
 
 export function ProfileMenu({
   accountCenterHref,
@@ -96,10 +97,10 @@ export function ProfileMenu({
               <span>계정센터</span>
               <span aria-hidden="true" className="menu-trail"><ExternalLinkIcon /></span>
             </a>
-            <a className="menu-item" href="/settings" onClick={() => setOpen(false)} role="menuitem">
+            <Link className="menu-item" href="/settings" onClick={() => setOpen(false)} role="menuitem">
               <SettingsIcon />
               <span>환경설정</span>
-            </a>
+            </Link>
             <form action={logoutAction}>
               <button className="menu-item menu-item-danger" role="menuitem" type="submit">
                 <LogOutIcon />

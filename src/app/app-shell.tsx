@@ -7,6 +7,8 @@ import { CommandPalette } from "./command-palette";
 import { ProfileMenu } from "./profile-menu";
 import { SettingsIcon } from "./icons";
 import { ActiveNavItem } from "./active-nav-item";
+import Link from "next/link";
+import { getArchiveService } from "@/lib/archive/service";
 
 async function currentIdentity() {
   try {
@@ -38,20 +40,21 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
   if (!identity) return children;
 
   const displayName = identity.name || identity.email || "사용자";
+  const folders = getArchiveService().listFolders(identity.userId);
   const avatarUrl = safeAvatarUrl(identity.avatarUrl);
   const fallback = initials(identity.name, identity.email);
 
   return (
     <div className="shell">
       <aside className="sidebar">
-        <a className="brand" href="/">
+        <Link className="brand" href="/">
           <img alt="" src="https://static.bini59.dev/logo/logo-128.png" />
           <span>
             <span className="brand-name">Archive</span>
             <span className="brand-host mono">archive.bini59.dev</span>
           </span>
-        </a>
-        <AppNavigation />
+        </Link>
+        <AppNavigation folders={folders} />
         <div className="sidebar-foot">
           <ThemeToggle />
 <ActiveNavItem href="/settings">
@@ -74,7 +77,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
           />
         </header>
         <div className="mobile-nav">
-          <AppNavigation mobile />
+          <AppNavigation folders={folders} mobile />
         </div>
         {children}
       </div>
