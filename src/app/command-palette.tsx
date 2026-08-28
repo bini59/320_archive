@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SearchIcon } from "./icons";
+import Link from "next/link";
 
 export function CommandPalette() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export function CommandPalette() {
             </div>
             <div className="palette-list">
               <button className="palette-item" type="submit">검색 결과 보기 <kbd>Enter</kbd></button>
-              <a className="palette-item" href="/settings" onClick={() => setOpen(false)}>사이트 환경설정</a>
+              <Link className="palette-item" href="/settings" onClick={() => setOpen(false)}>사이트 환경설정</Link>
             </div>
           </form>
         </div>

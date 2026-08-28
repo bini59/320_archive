@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   AuthUnavailableError,
@@ -42,6 +43,7 @@ export async function createArchiveAction(
   try {
     const visibility = formData.get("visibility") === "public" ? "public" : "private";
     const result = await getArchiveService().create(value.trim(), tags, identity.userId, folderId, visibility);
+    if (visibility === "public") revalidateTag("public-archives", "max");
     const formError = formErrorForCaptureFailure(result.archive.failureCode);
     if (formError) return formError;
     archiveId = result.archive.id;
@@ -79,7 +81,10 @@ export async function setArchiveVisibilityAction(formData: FormData): Promise<vo
   const identity = await requireAuthenticatedSession();
   const id = formData.get("id");
   const visibility = formData.get("visibility");
-  if (typeof id === "string" && (visibility === "public" || visibility === "private")) getArchiveService().setVisibility(identity.userId, id, visibility);
+  if (typeof id === "string" && (visibility === "public" || visibility === "private")) {
+    getArchiveService().setVisibility(identity.userId, id, visibility);
+    revalidateTag("public-archives", "max");
+  }
   redirect("/library");
 }
 
