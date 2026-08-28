@@ -158,6 +158,20 @@ h1, h2, h3, p { margin: 0; }
 .folder-name { overflow: hidden; padding-right: 22px; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .folder-arrow { position: absolute; right: 18px; bottom: 17px; color: var(--fg-3); }
 
+/* public archive lists and mobile folder layout (#28) */
+.folder-name { min-width: 0; overflow-wrap: anywhere; }
+.public-archives-tags { margin-bottom: 12px; }
+.public-archives-tags .section-label { margin: 0; }
+.public-archives-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.public-archive-card { min-width: 0; }
+.public-archive-card__body { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.public-archive-card__icon { width: 24px; height: 24px; flex: none; margin: 0; border-radius: 6px; }
+.public-archive-card__content { min-width: 0; flex: 1; }
+.public-archive-card__title, .public-archive-card__url { min-width: 0; overflow-wrap: anywhere; }
+.public-archive-card__title { line-height: 1.35; }
+.public-archive-card__tags { min-width: 0; }
+.public-archives-pagination { justify-content: center; margin-top: 12px; margin-bottom: 0; }
+
 /* controls */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -372,6 +386,23 @@ table.data tbody tr:hover { background: var(--panel-2); }
 @media (max-width: 45rem) {
   .archive-form-url-row { grid-template-columns: minmax(0, 1fr); }
   .archive-form-url-row .btn { width: 100%; }
+  /* #28 responsive list contract: controls stack, cards stay inside the page. */
+  .folder-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .folder-card { min-height: 122px; padding: 14px; }
+  .folder-icon { margin-bottom: 16px; }
+  .folder-name { overflow: hidden; padding-right: 18px; line-height: 1.4; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+  .folder-arrow { right: 14px; bottom: 14px; }
+  .public-archives-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+  .public-archives-toolbar .search { grid-column: 1 / -1; min-width: 0; }
+  .public-archives-toolbar .btn { min-height: 44px; }
+  .public-archives-tags { align-items: stretch; }
+  .public-archives-tags .chip { min-height: 36px; display: inline-flex; align-items: center; }
+  .public-archives-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .public-archive-card { padding: 14px; }
+  .public-archive-card__url { display: block; }
+  .public-archives-pagination { display: flex; align-items: center; }
+  .public-archives-pagination .btn { min-width: 72px; min-height: 44px; }
+  .public-archives-empty, .library-empty-state { padding: 56px 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
