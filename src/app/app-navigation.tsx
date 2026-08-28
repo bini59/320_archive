@@ -3,7 +3,7 @@ import { ActiveNavItem } from "./active-nav-item";
 
 export function FolderNavigation({ folders }: { folders: Folder[] }) {
   if (!folders.length) return null;
-  return <div className="nav-folders"><span className="section-label">폴더</span>{folders.map((folder) => <ActiveNavItem href={`/library/${folder.id}`} key={folder.id}><span>{folder.name}</span></ActiveNavItem>)}</div>;
+  return <div className="nav-folders mobile-nav-folders"><span className="section-label">폴더</span>{folders.map((folder) => <ActiveNavItem href={`/library/${folder.id}`} key={folder.id}><span>{folder.name}</span></ActiveNavItem>)}</div>;
 }
 
 export function AppNavigation({ folders, mobile = false }: { folders: Folder[]; mobile?: boolean }) {
