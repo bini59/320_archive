@@ -8,10 +8,11 @@ async function createFolderAndArchive(page: Page) {
   await page.goto("/library");
   await page.getByLabel("새 폴더 이름").fill(`카드 테스트 ${Date.now()}`);
   await page.getByRole("button", { name: "폴더 만들기" }).click();
-  await expect(page.locator(".library-folder-card").last()).toBeVisible();
-  const folderUrl = await page.locator(".library-folder-card").last().getAttribute("href");
+  const folderCard = page.locator(".library-folder-card", { hasText: folderName });
+  await expect(folderCard).toBeVisible();
+  const folderUrl = await folderCard.getAttribute("href");
 
-  const longQuery = "title=" + "긴주소".repeat(32);
+  const longQuery = "title=" + "긴주소".repeat(32) + "&test=" + encodeURIComponent(folderName);
   await page.goto("/");
   await page.getByLabel(/보관 폴더/).selectOption({ index: 1 });
   await page.getByLabel(/URL/i).fill(`http://cards.fixture.test:3101/success?${longQuery}`);
