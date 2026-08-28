@@ -20,6 +20,7 @@ import {
   isRetryableFormFailure,
   type ArchiveFormState,
 } from "./archive-form-state";
+import { folderErrorForAction, initialFolderFormState, validateFolderName, type FolderFormState } from "./folder-form-state";
 
 export async function createArchiveAction(
   _previousState: ArchiveFormState,
@@ -83,13 +84,29 @@ export async function retryArchiveAction(
   redirect(`/archives/${result.archive.id}`);
 }
 
-export async function createFolderAction(formData: FormData): Promise<void> {
+async function createFolderResult(formData: FormData): Promise<FolderFormState> {
   const identity = await requireAuthenticatedSession();
   const name = formData.get("name");
-  if (typeof name !== "string" || !name.trim()) return;
-  const folder = getArchiveService().createFolder(identity.userId, name);
+  const validationError = validateFolderName(name);
+  if (validationError) return { ...initialFolderFormState, error: validationError };
+  let folder;
+  try {
+    folder = getArchiveService().createFolder(identity.userId, name as string);
+  } catch (error) {
+    return { ...initialFolderFormState, error: folderErrorForAction(error) };
+  }
+  return { folder, error: null };
+}
+
+export async function createFolderAction(formData: FormData): Promise<void> {
+  const result = await createFolderResult(formData);
+  if (result.error || !result.folder) return;
   const returnTo = formData.get("returnTo");
-  redirect(returnTo === "/" ? `/?folderId=${encodeURIComponent(folder.id)}` : "/library");
+  redirect(returnTo === "/" ? `/?folderId=${encodeURIComponent(result.folder.id)}` : "/library");
+}
+
+export async function createFolderModalAction(formData: FormData): Promise<FolderFormState> {
+  return createFolderResult(formData);
 }
 
 export async function renameFolderAction(formData: FormData): Promise<void> {
