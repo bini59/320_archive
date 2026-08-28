@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -5,6 +6,7 @@ import { verifySession } from "@/lib/auth";
 import { ArchiveViewer } from "./archive-viewer";
 import { getArchiveService } from "@/lib/archive/service";
 import { SnapshotContentNotFoundError, type ArchiveStatus } from "@/lib/archive/types";
+import { ArchiveDetailSkeleton } from "../../skeletons";
 
 const statusPresentation: Record<ArchiveStatus, { badge: string; label: string; description: string }> = {
   pending: { badge: "badge", label: "캡처 중", description: "페이지를 캡처하고 있습니다." },
@@ -21,7 +23,7 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export default async function ArchivePage({ params }: { params: Promise<{ id: string }> }) {
+async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
@@ -120,4 +122,8 @@ export default async function ArchivePage({ params }: { params: Promise<{ id: st
       </div>
     </main>
   );
+}
+
+export default function ArchivePage({ params }: { params: Promise<{ id: string }> }) {
+  return <Suspense fallback={<ArchiveDetailSkeleton />}><ArchiveContent params={params} /></Suspense>;
 }
