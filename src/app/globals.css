@@ -382,6 +382,10 @@ table.data tbody tr:hover { background: var(--panel-2); }
   .folder-picker-row { align-items: stretch; flex-direction: column; }
   .archive-viewer .card-head { padding: 8px; }
   .archive-tabs button { min-height: 44px; padding: 6px 4px; line-height: 1.25; }
+}
+@media (max-width: 45rem) {
+  .archive-form-url-row { grid-template-columns: minmax(0, 1fr); }
+  .archive-form-url-row .btn { width: 100%; }
   /* #28 responsive list contract: controls stack, cards stay inside the page. */
   .folder-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .folder-card { min-height: 122px; padding: 14px; }
@@ -399,10 +403,6 @@ table.data tbody tr:hover { background: var(--panel-2); }
   .public-archives-pagination { display: flex; align-items: center; }
   .public-archives-pagination .btn { min-width: 72px; min-height: 44px; }
   .public-archives-empty, .library-empty-state { padding: 56px 16px; }
-}
-@media (max-width: 45rem) {
-  .archive-form-url-row { grid-template-columns: minmax(0, 1fr); }
-  .archive-form-url-row .btn { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

@@ -26,6 +26,16 @@ class StubCapture implements CaptureClient {
   }
 }
 
+class SequenceCapture implements CaptureClient {
+  calls = 0;
+  constructor(private readonly outcomes: Array<CapturedPage | Error>) {}
+  async capture(): Promise<CapturedPage> {
+    const outcome = this.outcomes[Math.min(this.calls++, this.outcomes.length - 1)];
+    if (outcome instanceof Error) throw outcome;
+    return outcome;
+  }
+}
+
 async function fixture(options: {
   capture?: CaptureClient;
   databasePath?: string;
@@ -95,6 +105,72 @@ describe("ArchiveService synchronous capture", () => {
     expect(readable).toContain("exact original");
     expect(await service.findContent(result.archive.id, "readable")).toMatchObject({ archive: { status: "saved" }, content: { kind: "readable" } });
     expect(JSON.parse(await readFile(path.join(archiveRoot, result.archive.id, "snapshot.json"), "utf8"))).toEqual(result.archive.snapshot);
+  });
+
+  it("retries a failed archive in place while preserving owner metadata", async () => {
+    const capture = new SequenceCapture([
+      new CaptureError("timeout"),
+      { bytes: Buffer.from("<html><title>Recovered</title></html>"), contentType: "text/html", finalUrl: "https://example.com/final" },
+    ]);
+    const { service } = await fixture({ capture });
+    service.syncUser({ userId: "owner-1", email: null, name: "Owner", avatarUrl: null, membership: { role: "member", status: "active" } });
+    const folder = service.createFolder("owner-1", "Keep me");
+    const first = await service.create("https://example.com/retry", "News", "owner-1", folder.id, "public");
+
+    const retried = await service.retry("owner-1", first.archive.id);
+
+    expect(retried).not.toBeNull();
+    expect(retried).toMatchObject({ started: true, archive: { id: first.archive.id, status: "saved", ownerId: "owner-1", folderId: folder.id, visibility: "public" } });
+    expect(retried!.archive.tags.map((tag) => tag.slug)).toEqual(["news"]);
+    expect(capture.calls).toBe(2);
+    expect(service.listOwned("owner-1")).toHaveLength(1);
+  });
+
+  it("rejects unauthorized and non-retryable retries without capturing", async () => {
+    const capture = new SequenceCapture([new CaptureError("invalid_url")]);
+    const { service } = await fixture({ capture });
+    const failed = await service.create("https://example.com/invalid", "", "owner-1");
+
+    expect(await service.retry("other-user", failed.archive.id)).toBeNull();
+    const notRetryable = await service.retry("owner-1", failed.archive.id);
+    expect(notRetryable).toMatchObject({ started: false, archive: { status: "failed", failureCode: "invalid_url" } });
+    expect(capture.calls).toBe(1);
+  });
+
+  it("returns a retryable failure and cleans staged files when retry fails again", async () => {
+    const capture = new SequenceCapture([new CaptureError("timeout"), new CaptureError("network")]);
+    const { archiveRoot, service } = await fixture({ capture });
+    const failed = await service.create("https://example.com/retry-again", "", "owner-1");
+
+    const retried = await service.retry("owner-1", failed.archive.id);
+
+    expect(retried).toMatchObject({ started: true, archive: { status: "failed", failureCode: "network" } });
+    await expect(readdir(path.join(archiveRoot, failed.archive.id))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("allows only one concurrent retry to capture the same archive", async () => {
+    let releaseCapture!: () => void;
+    const blocked = new Promise<void>((resolve) => { releaseCapture = resolve; });
+    const capture = {
+      calls: 0,
+      async capture(this: { calls: number }, url: string) {
+        this.calls += 1;
+        if (this.calls === 1) throw new CaptureError("timeout");
+        await blocked;
+        return { bytes: Buffer.from("<html></html>"), contentType: "text/html", finalUrl: url };
+      },
+    } as CaptureClient & { calls: number };
+    const { service } = await fixture({ capture });
+    const failed = await service.create("https://example.com/race", "", "owner-1");
+    const first = service.retry("owner-1", failed.archive.id);
+    await new Promise((resolve) => setImmediate(resolve));
+    const second = await service.retry("owner-1", failed.archive.id);
+    expect(second).toMatchObject({ started: false, archive: { status: "pending", id: failed.archive.id } });
+    releaseCapture();
+    const firstResult = await first;
+    expect(firstResult).not.toBeNull();
+    expect(firstResult!.archive.status).toBe("saved");
+    expect(capture.calls).toBe(2);
   });
 
   it("persists a rendered snapshot and its CSS resources as part of the archive", async () => {

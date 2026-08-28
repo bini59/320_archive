@@ -12,10 +12,12 @@ import {
   CAPTURE_FAILURE_MESSAGES,
   type Archive,
   type ArchiveCreationResult,
+  type ArchiveRetryResult,
   type ArchiveRepository,
   type AssetFetcher,
   type CaptureClient,
   type CaptureFailureCode,
+  isRetryableCaptureFailure,
   type PublicArchiveQuery,
   type PublicArchiveResult,
   type SnapshotContent,
@@ -44,21 +46,37 @@ export class ArchiveService {
     const result = this.repository.createOrGet({ ownerId, folderId, visibility: ownerId ? visibility : (process.env.NODE_ENV === "production" ? "private" : "public"), originalUrl, normalizedUrl, tags });
     if (!result.created) return result;
 
+    return { archive: await this.captureArchive(result.archive, tags), created: true };
+  }
+
+  async retry(ownerId: string, id: string): Promise<ArchiveRetryResult | null> {
+    const current = this.repository.findOwnedById(ownerId, id);
+    if (!current) return null;
+    if (current.status !== "failed" || !isRetryableCaptureFailure(current.failureCode)) return { archive: current, started: false };
+    const claimed = this.repository.claimRetry(ownerId, id);
+    if (!claimed) {
+      const latest = this.repository.findOwnedById(ownerId, id);
+      return latest ? { archive: latest, started: false } : null;
+    }
+    return { archive: await this.captureArchive(claimed, claimed.tags), started: true };
+  }
+
+  private async captureArchive(archive: Archive, tags: Archive["tags"]): Promise<Archive> {
     const release = this.limiter.tryAcquire();
-    if (!release) return { archive: this.fail(result.archive.id, "overloaded"), created: true };
+    if (!release) return this.fail(archive.id, "overloaded");
     const reservation = this.repository.reserveBudget(this.budget);
     if (!reservation) {
       release();
-      return { archive: this.fail(result.archive.id, "rate_limited"), created: true };
+      return this.fail(archive.id, "rate_limited");
     }
 
     try {
-      const page = await this.capture.capture(normalizedUrl, undefined, { archiveId: result.archive.id });
+      const page = await this.capture.capture(archive.normalizedUrl, undefined, { archiveId: archive.id });
       const meta = extractHtmlMetadata(page.bytes);
       const source = new TextDecoder().decode(page.bytes);
       const assets = page.renderedAssets ?? await this.captureLegacyAssets(source, page.finalUrl);
       const assetBytes = assets.reduce((total, asset) => total + asset.bytes.byteLength, 0);
-      const rewritten = Buffer.from(rewriteAssetReferences(source, page.finalUrl, result.archive.id, assets));
+      const rewritten = Buffer.from(rewriteAssetReferences(source, page.finalUrl, archive.id, assets));
       const readable = createReadableHtml(rewritten);
       const rendered = page.rendered ?? null;
       const snapshot = {
@@ -68,28 +86,28 @@ export class ArchiveService {
         byteLength: page.bytes.byteLength,
       };
 
-      const manifest = await this.store.save(result.archive.id, page.bytes, readable, snapshot, assets, rendered);
-      await this.store.read(result.archive.id, "original");
-      await this.store.read(result.archive.id, "readable");
-      if (rendered) await this.store.read(result.archive.id, "rendered");
-      for (const asset of manifest.assets) await this.store.readAsset(result.archive.id, asset.key);
+      const manifest = await this.store.save(archive.id, page.bytes, readable, snapshot, assets, rendered);
+      await this.store.read(archive.id, "original");
+      await this.store.read(archive.id, "readable");
+      if (rendered) await this.store.read(archive.id, "rendered");
+      for (const asset of manifest.assets) await this.store.readAsset(archive.id, asset.key);
       const saved = reservation.finalizeSaved({
-        archiveId: result.archive.id,
+        archiveId: archive.id,
         snapshot,
         indexText: extractReadableText(readable),
         tags,
         byteLength: manifest.storedByteLength ?? page.bytes.byteLength + assetBytes + (rendered?.byteLength ?? 0),
       });
       if (!saved) {
-        await this.store.cleanup(result.archive.id);
-        return { archive: this.fail(result.archive.id, "quota_exceeded"), created: true };
+        await this.store.cleanup(archive.id);
+        return this.fail(archive.id, "quota_exceeded");
       }
-      return { archive: saved, created: true };
+      return saved;
     } catch (error) {
       reservation.release();
-      await this.store.cleanup(result.archive.id).catch(() => undefined);
+      await this.store.cleanup(archive.id).catch(() => undefined);
       const code: CaptureFailureCode = error instanceof CaptureError ? error.code : "capture_failed";
-      return { archive: this.fail(result.archive.id, code), created: true };
+      return this.fail(archive.id, code);
     } finally {
       release();
     }
