@@ -9,7 +9,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const FILE_NAMES: Record<SnapshotContentKind, string> = { original: "original.html", readable: "readable.html", rendered: "rendered.html" };
 const EXTENSIONS:Record<AssetMimeType,string>={"image/jpeg":"jpg","image/png":"png","image/gif":"gif","image/webp":"webp","image/avif":"avif","application/pdf":"pdf","text/plain":"txt","text/css":"css","font/woff":"woff","font/woff2":"woff2","font/ttf":"ttf","font/otf":"otf","application/font-woff":"woff","application/vnd.ms-fontobject":"eot"};
 const ASSET_KEY=/^[a-f0-9]{64}\.(?:jpg|png|gif|webp|avif|pdf|txt|css|woff|woff2|ttf|otf|eot)$/;
-interface LocalSnapshotStoreOptions { beforeContentOpen?: () => void | Promise<void> }
+interface LocalSnapshotStoreOptions {
+  beforeContentOpen?: () => void | Promise<void>;
+  afterRename?: () => void | Promise<void>;
+}
 
 export class LocalSnapshotStore implements SnapshotStore {
   constructor(private readonly archiveRoot: string, private readonly options: LocalSnapshotStoreOptions = {}) {}
@@ -22,21 +25,30 @@ export class LocalSnapshotStore implements SnapshotStore {
     const stage = this.inside(root, `.${id}-${process.pid}-${randomUUID()}.stage`);
     await mkdir(stage);
     const manifest:AssetManifest={version:1,assets:[]};
+    let renamed = false;
     try {
       await this.write(path.join(stage, FILE_NAMES.original), original);
       await this.write(path.join(stage, FILE_NAMES.readable), readable);
       if (rendered) await this.write(path.join(stage, FILE_NAMES.rendered), rendered);
       await this.write(path.join(stage, "snapshot.json"), Buffer.from(`${JSON.stringify(snapshot, null, 2)}\n`));
       if(capturedAssets.length){const assetDir=path.join(stage,"assets");await mkdir(assetDir);for(const captured of capturedAssets){const digest=createHash("sha256").update(captured.bytes).digest("hex");const key=`${digest}.${EXTENSIONS[captured.mimeType]}` as AssetKey;await this.write(path.join(assetDir,key),captured.bytes).catch(async error=>{if((error as NodeJS.ErrnoException).code!=="EEXIST")throw error;});const asset:Asset={originalUrl:captured.originalUrl,finalUrl:captured.finalUrl,mimeType:captured.mimeType,byteLength:captured.bytes.byteLength,key};manifest.assets.push(asset);}const assetsHandle=await open(assetDir,"r");try{await assetsHandle.sync();}finally{await assetsHandle.close();}}
-      await this.write(path.join(stage,"assets.json"),Buffer.from(`${JSON.stringify(manifest,null,2)}\n`));
+      const assetsJson = Buffer.from(`${JSON.stringify(manifest,null,2)}\n`);
+      await this.write(path.join(stage,"assets.json"), assetsJson);
+      manifest.storedByteLength = original.byteLength + readable.byteLength + (rendered?.byteLength ?? 0)
+        + Buffer.byteLength(`${JSON.stringify(snapshot, null, 2)}\n`)
+        + assetsJson.byteLength
+        + manifest.assets.reduce((total, asset, index, all) => all.findIndex(candidate => candidate.key === asset.key) === index ? total + asset.byteLength : total, 0);
       const stageHandle = await open(stage, "r");
       try { await stageHandle.sync(); } finally { await stageHandle.close(); }
       await rename(stage, dir);
+      renamed = true;
+      await this.options.afterRename?.();
       const rootHandle = await open(root, "r");
       try { await rootHandle.sync(); } finally { await rootHandle.close(); }
       return manifest;
     } catch (error) {
       await rm(stage, { recursive: true, force: true }).catch(() => undefined);
+      if (renamed) await rm(dir, { recursive: true, force: true }).catch(() => undefined);
       throw error;
     }
   }
