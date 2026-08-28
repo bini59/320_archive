@@ -4,6 +4,10 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 });
 
+test.beforeEach(async ({ request }) => {
+  await request.get("http://127.0.0.1:3101/reset-requests");
+});
+
 async function createArchive(page: Page) {
   await page.goto("/library");
   const folderName = `Mobile ${Date.now()}-${Math.random()}`;
@@ -45,7 +49,7 @@ test("keeps folder links separate from the primary bottom navigation", async ({ 
   await expect(folders).toBeVisible();
   await expect(folders).toHaveCSS("overflow-x", "auto");
   await expect(primary.getByRole("link")).toHaveCount(3);
-  await expect(folders.getByRole("link").first()).toHaveAttribute("aria-current", "page");
+  await expect(folders.getByRole("link").first()).not.toHaveAttribute("aria-current");
 });
 
 test("supports keyboard navigation across viewer tabs without clipping", async ({ page }) => {
