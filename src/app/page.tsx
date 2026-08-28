@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { requireAuthenticatedSession } from "@/lib/auth";
 import { getArchiveService } from "@/lib/archive/service";
+import { HomeSkeleton } from "./skeletons";
 import { ArchiveForm } from "./archive-form";
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ folderId?: string }> }) {
+async function HomeContent({ searchParams }: { searchParams: Promise<{ folderId?: string }> }) {
   const { folderId } = await searchParams;
   const identity = await requireAuthenticatedSession();
   const folders = getArchiveService().listFolders(identity.userId);
@@ -25,4 +27,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
       </div>
     </main>
   );
+}
+
+export default function Home({ searchParams }: { searchParams: Promise<{ folderId?: string }> }) {
+  return <Suspense fallback={<HomeSkeleton />}><HomeContent searchParams={searchParams} /></Suspense>;
 }

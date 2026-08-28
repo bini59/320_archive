@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { requireAuthenticatedSession } from "@/lib/auth";
 import { getArchiveService } from "@/lib/archive/service";
+import { LibrarySkeleton } from "../skeletons";
 import { createFolderAction } from "@/app/actions";
 import { BoxIcon } from "@/app/icons";
 
-export default async function LibraryPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
+async function LibraryContent({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
   const identity = await requireAuthenticatedSession();
   const { returnTo } = await searchParams;
   const folders = getArchiveService().listFolders(identity.userId);
@@ -50,4 +52,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
       </section>
     </main>
   );
+}
+
+export default function LibraryPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
+  return <Suspense fallback={<LibrarySkeleton />}><LibraryContent searchParams={searchParams} /></Suspense>;
 }
