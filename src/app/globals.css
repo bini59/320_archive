@@ -231,6 +231,22 @@ table.data tbody tr:hover { background: var(--panel-2); }
 .cell-main { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .cell-main > div { min-width: 0; }
 .cell-main strong, .cell-main span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* issue #23: folder archive table/card presentation */
+.folder-archive-cards { display: none; margin: 0; padding: 0; list-style: none; }
+.folder-archive-card { min-width: 0; padding: 14px; border-bottom: 1px solid var(--border); }
+.folder-archive-card:last-child { border-bottom: 0; }
+.folder-archive-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; }
+.folder-archive-card__title { display: block; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
+.folder-archive-card__header .btn { flex: none; }
+.folder-archive-card__url { margin: 7px 0 12px; overflow-wrap: anywhere; word-break: break-word; color: var(--fg-2); font-size: 12px; }
+.folder-archive-card__meta { margin: 0 0 12px; color: var(--fg-2); font-size: 12px; }
+.folder-archive-card__meta div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.folder-archive-card__meta dt { color: var(--fg-3); }
+.folder-archive-card__meta dd { margin: 0; color: var(--fg-2); }
+.folder-archive-card__visibility { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.folder-archive-card__visibility label { display: grid; gap: 5px; min-width: 0; color: var(--fg-3); font-size: 12px; }
+.folder-archive-card__visibility .input { width: 100%; min-width: 0; }
 .cell-main strong { font-weight: 500; }
 .cell-main span { color: var(--fg-3); font-size: 11.5px; }
 .avatar {
@@ -382,6 +398,10 @@ table.data tbody tr:hover { background: var(--panel-2); }
   .folder-picker-row { align-items: stretch; flex-direction: column; }
   .archive-viewer .card-head { padding: 8px; }
   .archive-tabs button { min-height: 44px; padding: 6px 4px; line-height: 1.25; }
+
+  /* #23: replace the wide archive table with action-complete cards. */
+  .folder-archive-table { display: none; }
+  .folder-archive-cards { display: block; }
 }
 @media (max-width: 45rem) {
   .archive-form-url-row { grid-template-columns: minmax(0, 1fr); }
