@@ -12,6 +12,7 @@ import {
   revokeSession,
 } from "@/lib/auth";
 import { getArchiveService } from "@/lib/archive/service";
+import { isRetryableCaptureFailure } from "@/lib/archive/types";
 import { ArchiveUrlError } from "@/lib/archive/url";
 import { TagValidationError } from "@/lib/archive/tags";
 import {
@@ -19,7 +20,6 @@ import {
   formErrorForInvalidTags,
   captureFailurePresentation,
   formContextFromData,
-  isRetryableFormFailure,
   type ArchiveFormState,
 } from "./archive-form-state";
 import { folderErrorForAction, initialFolderFormState, validateFolderName, type FolderFormState } from "./folder-form-state";
@@ -88,7 +88,7 @@ export async function retryArchiveAction(
   if (result.archive.status === "pending") return { error: "이미 캡처 중입니다. 잠시 후 새로고침해 주세요." };
   if (result.archive.status === "failed") {
     const presentation = result.archive.failureCode ? captureFailurePresentation(result.archive.failureCode) : null;
-    if (isRetryableFormFailure(result.archive.failureCode)) {
+    if (isRetryableCaptureFailure(result.archive.failureCode)) {
       return {
         ...(formErrorForCaptureFailure(result.archive.failureCode) ?? { error: "잠시 후 다시 시도해 주세요." }),
         archiveId: result.archive.id,
