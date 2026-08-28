@@ -324,6 +324,13 @@ table.data tbody tr:hover { background: var(--panel-2); }
 .palette-item:hover { background: var(--panel-2); text-decoration: none; }
 .palette-item kbd { margin-left: auto; }
 
+.folder-modal-backdrop { display: flex; justify-content: center; align-items: flex-start; position: fixed; inset: 0; z-index: 80; padding: 14vh 16px 16px; background: rgba(0, 0, 0, .45); }
+.folder-modal { display: grid; gap: 16px; width: min(440px, 92vw); padding: 20px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--raise); box-shadow: var(--shadow); animation: popIn .14s ease both; }
+.folder-modal-head, .folder-modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.folder-modal-head h2 { font-size: 17px; font-weight: 600; }
+.folder-modal-actions { justify-content: flex-end; }
+.folder-modal-error { min-height: 1.25em; margin: 0; color: var(--danger, #b42318); font-size: 12.5px; }
+
 /* forms */
 .archive-form { width: 100%; min-width: 0; }
 .archive-form-fields { display: grid; gap: 8px; min-width: 0; }

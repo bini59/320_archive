@@ -6,6 +6,56 @@ async function openRegistrationForm(page: Page) {
   await expect(page.locator(".archive-form-fields")).toBeVisible();
 }
 
+test("creates a folder in an accessible modal and selects it", async ({ page }) => {
+  await openRegistrationForm(page);
+  const folderSelect = page.getByLabel("보관 폴더");
+  const previousValue = await folderSelect.inputValue();
+  const folderName = `Modal ${Date.now()}-${Math.random()}`;
+
+  await folderSelect.selectOption("__new__");
+  const dialog = page.getByRole("dialog", { name: "새 폴더 만들기" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("폴더 이름")).toBeFocused();
+  await dialog.getByLabel("폴더 이름").fill(folderName);
+  await dialog.getByRole("button", { name: "폴더 만들기", exact: true }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(folderSelect).toHaveValue(/.+/);
+  await expect(folderSelect.locator("option:checked")).toHaveText(folderName);
+  expect(await folderSelect.inputValue()).not.toBe(previousValue);
+  await expect(folderSelect).toBeFocused();
+});
+
+test("shows a server validation error without closing the folder modal", async ({ page }) => {
+  await openRegistrationForm(page);
+  const folderSelect = page.getByLabel("보관 폴더");
+  const folderName = `Duplicate ${Date.now()}-${Math.random()}`;
+  await folderSelect.selectOption("__new__");
+  let dialog = page.getByRole("dialog", { name: "새 폴더 만들기" });
+  await dialog.getByLabel("폴더 이름").fill(folderName);
+  await dialog.getByRole("button", { name: "폴더 만들기", exact: true }).click();
+  await expect(dialog).toBeHidden();
+
+  await folderSelect.selectOption("__new__");
+  dialog = page.getByRole("dialog", { name: "새 폴더 만들기" });
+  await dialog.getByLabel("폴더 이름").fill(folderName);
+  await dialog.getByRole("button", { name: "폴더 만들기", exact: true }).click();
+  await expect(dialog.getByText("이미 같은 이름의 폴더가 있습니다.")).toBeVisible();
+  await expect(dialog).toBeVisible();
+});
+
+test("cancels folder creation with Escape and returns focus to the picker", async ({ page }) => {
+  await openRegistrationForm(page);
+  const folderSelect = page.getByLabel("보관 폴더");
+  await folderSelect.selectOption("__new__");
+  const dialog = page.getByRole("dialog", { name: "새 폴더 만들기" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(folderSelect).toBeFocused();
+  await expect(folderSelect).not.toHaveValue("__new__");
+});
+
 test("keeps the registration form within the viewport on narrow mobile", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 700 });
   await openRegistrationForm(page);

@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback, useRef, useState } from "react";
 import { useActionState } from "react";
 import { createArchiveAction } from "./actions";
 import { initialArchiveFormState } from "./archive-form-state";
+import { FolderCreateModal } from "./folder-create-modal";
 
 type ArchiveFormProps = {
   folders: { id: string; name: string }[];
@@ -15,20 +17,34 @@ export function ArchiveForm({
   folderId = null,
   returnTo = null,
 }: ArchiveFormProps) {
+  const [availableFolders, setAvailableFolders] = useState(folders);
+  const [selectedFolderId, setSelectedFolderId] = useState(folderId ?? "");
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [folderModalKey, setFolderModalKey] = useState(0);
+  const folderSelectRef = useRef<HTMLSelectElement>(null);
+  const handleFolderCreated = useCallback((folder: { id: string; name: string }) => {
+    setAvailableFolders((current) => [...current, folder]);
+    setSelectedFolderId(folder.id);
+  }, []);
+  const closeFolderModal = useCallback(() => {
+    setFolderModalOpen(false);
+    requestAnimationFrame(() => folderSelectRef.current?.focus());
+  }, []);
   const [state, formAction, pending] = useActionState(
     createArchiveAction,
     initialArchiveFormState,
   );
 
   return (
+    <>
     <form action={formAction} className="archive-form-fields">
       {returnTo ? <input name="returnTo" type="hidden" value={returnTo} /> : null}
       <div className="form-row folder-picker-row archive-form-folder">
         <label className="field" htmlFor="archive-folder">
           <span className="field-label">보관 폴더</span>
-          <select aria-describedby="archive-folder-error" aria-invalid={state.folderError ? true : undefined} className="input" defaultValue={folderId ?? ""} id="archive-folder" name="folderId" onChange={(event) => { if (event.target.value === "__new__") window.location.assign("/library?returnTo=%2F"); }} required>
+          <select aria-describedby="archive-folder-error" aria-invalid={state.folderError ? true : undefined} className="input" id="archive-folder" name="folderId" onChange={(event) => { if (event.target.value === "__new__") { setFolderModalKey((key) => key + 1); setFolderModalOpen(true); } else setSelectedFolderId(event.target.value); }} ref={folderSelectRef} required value={selectedFolderId}>
             <option disabled value="">폴더를 선택하세요</option>
-            {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+            {availableFolders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
             <option value="__new__">+ 새 폴더 만들기</option>
           </select>
         </label>
@@ -89,5 +105,12 @@ export function ArchiveForm({
         </p>
       </div>
     </form>
+    <FolderCreateModal
+      key={folderModalKey}
+      onClose={closeFolderModal}
+      onCreated={handleFolderCreated}
+      open={folderModalOpen}
+    />
+    </>
   );
 }

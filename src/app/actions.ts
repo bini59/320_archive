@@ -12,14 +12,15 @@ import {
   revokeSession,
 } from "@/lib/auth";
 import { getArchiveService } from "@/lib/archive/service";
+import { isRetryableCaptureFailure } from "@/lib/archive/types";
 import { ArchiveUrlError } from "@/lib/archive/url";
 import { TagValidationError } from "@/lib/archive/tags";
 import {
   formErrorForCaptureFailure,
   formErrorForInvalidTags,
-  isRetryableFormFailure,
   type ArchiveFormState,
 } from "./archive-form-state";
+import { folderErrorForAction, initialFolderFormState, validateFolderName, type FolderFormState } from "./folder-form-state";
 
 export async function createArchiveAction(
   _previousState: ArchiveFormState,
@@ -73,7 +74,7 @@ export async function retryArchiveAction(
   if (!result) return { error: "아카이브를 찾을 수 없습니다." };
   if (result.archive.status === "pending") return { error: "이미 캡처 중입니다. 잠시 후 새로고침해 주세요." };
   if (result.archive.status === "failed") {
-    if (isRetryableFormFailure(result.archive.failureCode)) {
+    if (isRetryableCaptureFailure(result.archive.failureCode)) {
       return formErrorForCaptureFailure(result.archive.failureCode) ?? { error: "잠시 후 다시 시도해 주세요." };
     }
     return { error: "이 아카이브는 다시 시도할 수 없습니다." };
@@ -83,13 +84,29 @@ export async function retryArchiveAction(
   redirect(`/archives/${result.archive.id}`);
 }
 
-export async function createFolderAction(formData: FormData): Promise<void> {
+async function createFolderResult(formData: FormData): Promise<FolderFormState> {
   const identity = await requireAuthenticatedSession();
   const name = formData.get("name");
-  if (typeof name !== "string" || !name.trim()) return;
-  const folder = getArchiveService().createFolder(identity.userId, name);
+  const validationError = validateFolderName(name);
+  if (validationError) return { ...initialFolderFormState, error: validationError };
+  let folder;
+  try {
+    folder = getArchiveService().createFolder(identity.userId, name as string);
+  } catch (error) {
+    return { ...initialFolderFormState, error: folderErrorForAction(error) };
+  }
+  return { folder, error: null };
+}
+
+export async function createFolderAction(formData: FormData): Promise<void> {
+  const result = await createFolderResult(formData);
+  if (result.error || !result.folder) return;
   const returnTo = formData.get("returnTo");
-  redirect(returnTo === "/" ? `/?folderId=${encodeURIComponent(folder.id)}` : "/library");
+  redirect(returnTo === "/" ? `/?folderId=${encodeURIComponent(result.folder.id)}` : "/library");
+}
+
+export async function createFolderModalAction(formData: FormData): Promise<FolderFormState> {
+  return createFolderResult(formData);
 }
 
 export async function renameFolderAction(formData: FormData): Promise<void> {
