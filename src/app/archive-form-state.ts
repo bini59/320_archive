@@ -1,4 +1,4 @@
-import type { CaptureFailureCode } from "@/lib/archive/types";
+import { isRetryableCaptureFailure, type CaptureFailureCode } from "@/lib/archive/types";
 
 export interface ArchiveFormState {
   error: string | null;
@@ -20,6 +20,10 @@ export function formErrorForCaptureFailure(
   if (!code) return null;
   const error = retryableCaptureErrors[code];
   return error ? { error } : null;
+}
+
+export function isRetryableFormFailure(code: CaptureFailureCode | null): boolean {
+  return isRetryableCaptureFailure(code);
 }
 
 export function formErrorForInvalidTags(message = "태그 형식이 올바르지 않습니다."): ArchiveFormState {

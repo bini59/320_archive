@@ -10,6 +10,29 @@ afterEach(async()=>{repos.splice(0).forEach(r=>r.close());await Promise.all(root
 const snapshot=(title:string,capturedAt="2026-01-01T00:00:00.000Z")=>({title,description:"desc",capturedAt,finalUrl:"https://example.com/final",byteLength:5});
 
 describe("SqliteArchiveRepository public library",()=>{
+  it("atomically claims only retryable failed archives for their owner", async () => {
+    const { repo } = await fixture();
+    const row = repo.createOrGet({ ownerId: "owner-1", originalUrl: "https://example.com/retry", normalizedUrl: "https://example.com/retry" }).archive;
+    repo.markFailed(row.id, "timeout", "페이지 응답 시간이 초과되었습니다.");
+
+    const claimed = repo.claimRetry("owner-1", row.id);
+    expect(claimed).toMatchObject({ id: row.id, status: "pending", folderId: null, visibility: "private", tags: [] });
+    expect(repo.claimRetry("owner-1", row.id)).toBeNull();
+    expect(repo.findById(row.id)).toMatchObject({ status: "pending", failureCode: null, failureMessage: null });
+  });
+
+  it("does not claim non-retryable failures or another owner's archive", async () => {
+    const { repo } = await fixture();
+    const invalid = repo.createOrGet({ ownerId: "owner-1", originalUrl: "https://example.com/invalid", normalizedUrl: "https://example.com/invalid" }).archive;
+    repo.markFailed(invalid.id, "invalid_url", "안전하게 접근할 수 없는 URL입니다.");
+    expect(repo.claimRetry("owner-1", invalid.id)).toBeNull();
+
+    const timeout = repo.createOrGet({ ownerId: "owner-1", originalUrl: "https://example.com/owner", normalizedUrl: "https://example.com/owner" }).archive;
+    repo.markFailed(timeout.id, "timeout", "페이지 응답 시간이 초과되었습니다.");
+    expect(repo.claimRetry("owner-2", timeout.id)).toBeNull();
+    expect(repo.findById(timeout.id)).toMatchObject({ status: "failed", failureCode: "timeout" });
+  });
+
   it("lists saved only and searches title, URL and body without raw FTS syntax",async()=>{const {repo}=await fixture();const saved=repo.createOrGet({originalUrl:"https://example.com/needle-url",normalizedUrl:"https://example.com/needle-url"}).archive;repo.markSaved(saved.id,snapshot("Needle title"),"hidden body token");repo.createOrGet({originalUrl:"https://example.com/pending",normalizedUrl:"https://example.com/pending"});expect(repo.listPublic({}).items.map(x=>x.id)).toEqual([saved.id]);expect(repo.listPublic({q:"needle"}).total).toBe(1);expect(repo.listPublic({q:"hidden token"}).total).toBe(1);expect(()=>repo.listPublic({q:'" OR * NOT ('})).not.toThrow();});
   it("merges tags for duplicate URLs and combines tag/search filters",async()=>{const {repo}=await fixture();const first=repo.createOrGet({originalUrl:"https://example.com/a",normalizedUrl:"https://example.com/a",tags:[{name:"News",slug:"news"}]}).archive;repo.createOrGet({originalUrl:"https://example.com/a",normalizedUrl:"https://example.com/a",tags:[{name:"Tech",slug:"tech"}]});repo.markSaved(first.id,snapshot("Searchable"),"body");expect(repo.findById(first.id)?.tags.map(t=>t.slug)).toEqual(["news","tech"]);expect(repo.listPublic({q:"searchable",tag:"tech"}).total).toBe(1);expect(repo.listPublic({tag:"missing"}).total).toBe(0);});
   it("uses stable captured ordering and bounded pages",async()=>{const {repo}=await fixture();for(let i=0;i<22;i++){const row=repo.createOrGet({originalUrl:`https://example.com/${i}`,normalizedUrl:`https://example.com/${i}`}).archive;repo.markSaved(row.id,snapshot(`Title ${i}`,new Date(2026,0,1,0,0,i).toISOString()));}const first=repo.listPublic({page:-1});expect(first.page).toBe(1);expect(first.items).toHaveLength(20);expect(first.pageCount).toBe(2);expect(first.items[0].title).toBe("Title 21");expect(repo.listPublic({page:2}).items).toHaveLength(2);});

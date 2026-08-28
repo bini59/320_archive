@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { ARCHIVE_LIST_MAX_PAGE, ARCHIVE_LIST_PAGE_SIZE, ARCHIVE_SEARCH_MAX_TOKENS, ARCHIVE_SEARCH_QUERY_MAX_LENGTH, ARCHIVE_STATUSES, CAPTURE_FAILURE_MESSAGES, type Archive, type ArchiveRepository, type ArchiveVisibility, type CaptureFailureCode, type Folder, type PublicArchiveItem, type PublicArchiveQuery, type Snapshot, type Tag, type User } from "./types";
+import { ARCHIVE_LIST_MAX_PAGE, ARCHIVE_LIST_PAGE_SIZE, ARCHIVE_SEARCH_MAX_TOKENS, ARCHIVE_SEARCH_QUERY_MAX_LENGTH, ARCHIVE_STATUSES, CAPTURE_FAILURE_MESSAGES, RETRYABLE_CAPTURE_FAILURE_CODES, type Archive, type ArchiveRepository, type ArchiveVisibility, type CaptureFailureCode, type Folder, type PublicArchiveItem, type PublicArchiveQuery, type Snapshot, type Tag, type User } from "./types";
 import { normalizeTagSlug } from "./tags";
 type Row = Record<string, unknown>;
 const str = (v: unknown) => typeof v === "string" ? v : null;
@@ -96,6 +96,18 @@ export class SqliteArchiveRepository implements ArchiveRepository {
   }
   markSaved(id: string, s: Snapshot, indexText = "", tags: Tag[] = []) { this.database.exec("BEGIN IMMEDIATE"); try { this.saveArchive(id, s, indexText, tags); this.database.exec("COMMIT"); return this.findById(id); } catch (error) { this.database.exec("ROLLBACK"); throw error; } }
   markFailed(id: string, code: CaptureFailureCode, message: string) { const safe = CAPTURE_FAILURE_MESSAGES[code] === message ? message : CAPTURE_FAILURE_MESSAGES.capture_failed; this.database.prepare("UPDATE archives SET status='failed',failure_code=?,failure_message=? WHERE id=? AND status='pending'").run(code, safe, id); return this.findById(id); }
+  claimRetry(ownerId: string, id: string) {
+    const placeholders = RETRYABLE_CAPTURE_FAILURE_CODES.map(() => "?").join(",");
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      const result = this.database.prepare(`UPDATE archives SET status='pending',failure_code=NULL,failure_message=NULL WHERE id=? AND owner_id=? AND status='failed' AND failure_code IN (${placeholders})`).run(id, ownerId, ...RETRYABLE_CAPTURE_FAILURE_CODES);
+      this.database.exec("COMMIT");
+      return Number(result.changes) === 1 ? this.findOwnedById(ownerId, id) : null;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
+  }
   listPublic(i: PublicArchiveQuery) { const page = Math.min(ARCHIVE_LIST_MAX_PAGE, Math.max(1, Number.isSafeInteger(i.page) ? i.page! : 1)), tag = normalizeTagSlug(i.tag) ?? "", tokens = (i.q ?? "").slice(0, ARCHIVE_SEARCH_QUERY_MAX_LENGTH).normalize("NFKC").match(/[\p{L}\p{N}]+/gu)?.slice(0, ARCHIVE_SEARCH_MAX_TOKENS) ?? [], match = tokens.map(t => `"${t.replaceAll('"', '""')}"`).join(" AND "), joins = `${match ? "JOIN archive_search f ON f.archive_id=a.id" : ""} ${tag ? "JOIN archive_tags at ON at.archive_id=a.id JOIN tags filter_tag ON filter_tag.id=at.tag_id" : ""}`, where = `a.status='saved' AND a.visibility='public' ${match ? "AND archive_search MATCH ?" : ""} ${tag ? "AND filter_tag.slug=?" : ""}`, params = [...(match ? [match] : []), ...(tag ? [tag] : [])]; const total = Number((this.database.prepare(`SELECT COUNT(DISTINCT a.id) value FROM archives a ${joins} WHERE ${where}`).get(...params) as Row).value); const rows = (this.database.prepare(`SELECT DISTINCT a.id,a.original_url,a.title,a.description,a.captured_at FROM archives a ${joins} WHERE ${where} ORDER BY a.captured_at DESC,a.id DESC LIMIT ? OFFSET ?`) as any).all(...params, ARCHIVE_LIST_PAGE_SIZE, (page - 1) * ARCHIVE_LIST_PAGE_SIZE) as Iterable<Row>; return { items: Array.from(rows, r => ({ id: String(r.id), originalUrl: String(r.original_url), title: str(r.title), description: str(r.description), capturedAt: String(r.captured_at), tags: this.tags(String(r.id)) } as PublicArchiveItem)), total, page, pageSize: ARCHIVE_LIST_PAGE_SIZE, pageCount: Math.ceil(total / ARCHIVE_LIST_PAGE_SIZE) }; }
 
   reserveBudget(i: { windowMs: number; maxSubmissions: number; maxStoredBytes: number; reserveBytes: number; timeoutMs: number }) {
