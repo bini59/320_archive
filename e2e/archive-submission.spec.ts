@@ -88,7 +88,18 @@ test("shows a safe reason for a failed fixture capture", async ({ page }) => {
   await expect(page.getByText(/HTML 페이지가 아닙니다/)).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
   await expect(page.locator("iframe, article article")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "다시 시도" })).toHaveCount(0);
   await expect(page.getByText(/경로|ENOENT|snapshot\.json|original\.html/i)).toHaveCount(0);
+});
+
+test("offers an owner retry for a transient capture failure", async ({ page }) => {
+  await submit(page, "http://retry.fixture.test:3101/retry");
+  await expect(page.getByText("페이지에 연결할 수 없습니다.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "다시 시도" })).toBeVisible();
+  await page.getByRole("button", { name: "다시 시도" }).click();
+  await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
+  await expect(page.locator(".badge", { hasText: "저장 완료" })).toBeVisible();
+  await expect(page.getByText("Fixture saved title")).toBeVisible();
 });
 
 test("fails safely when the browser request budget is exceeded", async ({ page }) => {

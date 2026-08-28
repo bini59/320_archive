@@ -17,6 +17,8 @@ import { TagValidationError } from "@/lib/archive/tags";
 import {
   formErrorForCaptureFailure,
   formErrorForInvalidTags,
+  captureFailurePresentation,
+  formContextFromData,
   isRetryableFormFailure,
   type ArchiveFormState,
 } from "./archive-form-state";
@@ -30,16 +32,17 @@ export async function createArchiveAction(
   const value = formData.get("url");
   const tags = formData.get("tags");
   const folderId = formData.get("folderId");
+  const formContext = formContextFromData(formData);
   if (typeof folderId !== "string" || !folderId) {
-    return { error: null, folderError: "아카이브를 보관할 폴더를 선택해 주세요.", tagError: null };
+    return { error: null, folderError: "아카이브를 보관할 폴더를 선택해 주세요.", tagError: null, formContext };
   }
   if (!getArchiveService().listFolders(identity.userId).some((folder) => folder.id === folderId)) {
-    return { error: null, folderError: "선택한 폴더를 찾을 수 없습니다.", tagError: null };
+    return { error: null, folderError: "선택한 폴더를 찾을 수 없습니다.", tagError: null, formContext };
   }
   if (typeof value !== "string" || value.trim() === "") {
-    return { error: "보관할 URL을 입력해 주세요.", folderError: null, tagError: null };
+    return { error: "보관할 URL을 입력해 주세요.", folderError: null, tagError: null, formContext };
   }
-  if (typeof tags !== "string") return formErrorForInvalidTags();
+  if (typeof tags !== "string") return { ...formErrorForInvalidTags(), formContext };
 
   let archiveId: string;
   try {
@@ -47,13 +50,23 @@ export async function createArchiveAction(
     const result = await getArchiveService().create(value.trim(), tags, identity.userId, folderId, visibility);
     if (visibility === "public") revalidateTag("public-archives", "max");
     const formError = formErrorForCaptureFailure(result.archive.failureCode);
-    if (formError) return formError;
+    if (formError) {
+      const presentation = captureFailurePresentation(result.archive.failureCode!);
+      return {
+        ...formError,
+        archiveId: result.archive.id,
+        failureCode: result.archive.failureCode,
+        errorKind: presentation.kind,
+        retryable: presentation.retryable,
+        formContext,
+      };
+    }
     archiveId = result.archive.id;
   } catch (error) {
     if (error instanceof ArchiveUrlError) {
-      return { error: error.message, tagError: null };
+      return { error: error.message, tagError: null, errorKind: "permanent", retryable: false, formContext };
     }
-    if (error instanceof TagValidationError) return formErrorForInvalidTags(error.message);
+    if (error instanceof TagValidationError) return { ...formErrorForInvalidTags(error.message), formContext };
     throw error;
   }
 
@@ -74,10 +87,17 @@ export async function retryArchiveAction(
   if (!result) return { error: "아카이브를 찾을 수 없습니다." };
   if (result.archive.status === "pending") return { error: "이미 캡처 중입니다. 잠시 후 새로고침해 주세요." };
   if (result.archive.status === "failed") {
+    const presentation = result.archive.failureCode ? captureFailurePresentation(result.archive.failureCode) : null;
     if (isRetryableFormFailure(result.archive.failureCode)) {
-      return formErrorForCaptureFailure(result.archive.failureCode) ?? { error: "잠시 후 다시 시도해 주세요." };
+      return {
+        ...(formErrorForCaptureFailure(result.archive.failureCode) ?? { error: "잠시 후 다시 시도해 주세요." }),
+        archiveId: result.archive.id,
+        failureCode: result.archive.failureCode,
+        errorKind: presentation?.kind,
+        retryable: true,
+      };
     }
-    return { error: "이 아카이브는 다시 시도할 수 없습니다." };
+    return { error: "이 아카이브는 다시 시도할 수 없습니다.", archiveId: result.archive.id, failureCode: result.archive.failureCode, errorKind: presentation?.kind ?? "permanent", retryable: false };
   }
 
   revalidateTag("public-archives", "max");
