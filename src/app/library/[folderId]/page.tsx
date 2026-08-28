@@ -2,8 +2,12 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { requireAuthenticatedSession } from "@/lib/auth";
 import { getArchiveService } from "@/lib/archive/service";
-import { ArchiveForm } from "@/app/archive-form";
-import { createFolderAction, deleteFolderAction, renameFolderAction, setArchiveVisibilityAction } from "@/app/actions";
+import { setArchiveVisibilityAction } from "@/app/actions";
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : date.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
+}
 
 export default async function FolderPage({ params }: { params: Promise<{ folderId: string }> }) {
   const { folderId } = await params;
@@ -13,11 +17,8 @@ export default async function FolderPage({ params }: { params: Promise<{ folderI
   const folder = service.listFolders(identity.userId).find((item) => item.id === folderId);
   if (!folder) notFound();
   const archives = service.listOwned(identity.userId, folderId);
-  const returnTo = `/library/${folderId}`;
   return <main className="page">
-    <div className="page-head"><div><p className="section-label">내 보관함</p><h1>{folder.name}</h1><p>{archives.length}개의 아카이브</p></div><a className="btn btn-ghost" href="/library">전체 보관함</a></div>
-    <div className="card"><div className="card-head">폴더 관리</div><div className="card-body"><form action={renameFolderAction} className="form-row"><input name="id" type="hidden" value={folder.id} /><input className="input" name="name" defaultValue={folder.name} maxLength={100} required /><button className="btn" type="submit">이름 변경</button></form><form action={deleteFolderAction} className="mt-3"><input name="id" type="hidden" value={folder.id} /><button className="btn btn-ghost" type="submit">폴더 삭제</button></form></div></div>
-    <div className="card archive-form"><div className="card-head">이 폴더에 보관</div><div className="card-body"><ArchiveForm folderId={folder.id} returnTo={returnTo} /></div></div>
-    <div className="card card-body">{archives.length ? archives.map((archive) => <div className="flex items-center justify-between gap-3 border-b py-3" key={archive.id}><a href={`/archives/${archive.id}`}>{archive.snapshot?.title ?? archive.originalUrl}</a><form action={setArchiveVisibilityAction}><input name="id" type="hidden" value={archive.id} /><select aria-label="공개 설정" className="input" name="visibility" defaultValue={archive.visibility}><option value="private">비공개</option><option value="public">공개</option></select><button className="btn btn-sm" type="submit">저장</button></form></div>) : <p className="muted">이 폴더에 저장된 아카이브가 없습니다.</p>}</div>
+    <div className="page-head"><div><p className="section-label">내 보관함</p><h1>{folder.name}</h1><p>{archives.length}개의 아카이브</p></div><a className="btn btn-primary" href={`/?folderId=${encodeURIComponent(folder.id)}`}>새 사이트 등록</a></div>
+    <div className="card"><div className="card-head">보관 목록</div>{archives.length ? <div className="table-wrap"><table className="data"><thead><tr><th>사이트</th><th>저장일</th><th>공개 설정</th><th><span className="sr-only">관리</span></th></tr></thead><tbody>{archives.map((archive) => <tr key={archive.id}><td><div className="cell-main"><div><strong><a href={`/archives/${archive.id}`}>{archive.snapshot?.title ?? "제목 없는 사이트"}</a></strong><span className="mono">{archive.originalUrl}</span></div></div></td><td className="mono nums dim">{formatDate(archive.createdAt)}</td><td><form action={setArchiveVisibilityAction} className="inline-form"><input name="id" type="hidden" value={archive.id} /><select aria-label={`${archive.snapshot?.title ?? archive.originalUrl} 공개 설정`} className="input" name="visibility" defaultValue={archive.visibility}><option value="private">비공개</option><option value="public">공개</option></select><button className="btn btn-sm" type="submit">저장</button></form></td><td><a className="btn btn-ghost btn-sm" href={`/archives/${archive.id}`}>열기</a></td></tr>)}</tbody></table></div> : <div className="card-body"><p className="muted">이 폴더에 저장된 아카이브가 없습니다.</p></div>}</div>
   </main>;
 }

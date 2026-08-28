@@ -6,6 +6,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { CommandPalette } from "./command-palette";
 import { ProfileMenu } from "./profile-menu";
 import { SettingsIcon } from "./icons";
+import { ActiveNavItem } from "./active-nav-item";
 
 async function currentIdentity() {
   try {
@@ -53,10 +54,10 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
         <AppNavigation />
         <div className="sidebar-foot">
           <ThemeToggle />
-          <a className="nav-item" href="/settings">
-            <SettingsIcon />
-            <span>사이트 환경설정</span>
-          </a>
+<ActiveNavItem href="/settings">
+             <SettingsIcon />
+             <span>사이트 환경설정</span>
+           </ActiveNavItem>
         </div>
       </aside>
       <div className="content">
