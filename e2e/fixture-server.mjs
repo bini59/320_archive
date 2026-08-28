@@ -12,6 +12,7 @@ const assetHosts = new Set(["assets.fixture.test", "redirect.fixture.test"]);
 
 let unexpectedRequests = [];
 let sourceOffline = false;
+let retrySourceAttempts = 0;
 
 function send(response, type, body, headers = {}) {
   response.writeHead(200, { "content-type": type, "content-length": Buffer.byteLength(body), ...headers });
@@ -78,6 +79,7 @@ http.createServer((request, response) => {
   if (pathname === "/reset-requests") {
     unexpectedRequests = [];
     sourceOffline = false;
+    retrySourceAttempts = 0;
     response.writeHead(204).end();
     return;
   }
@@ -95,6 +97,10 @@ http.createServer((request, response) => {
   }
 
   if (pathname === "/failed") return send(response, "application/json", "{}");
+  if (pathname === "/retry" && retrySourceAttempts++ === 0) {
+    response.socket.destroy();
+    return;
+  }
   if (pathname === "/request-storm") return send(response, "text/html; charset=utf-8", requestStormPage());
   if (pathname.startsWith("/unexpected")) {
     unexpectedRequests.push(`${host}${pathname}`);

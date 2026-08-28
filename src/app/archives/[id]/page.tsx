@@ -4,8 +4,10 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { verifySession } from "@/lib/auth";
 import { ArchiveViewer } from "./archive-viewer";
+import { ArchiveStatusAction } from "./archive-status-action";
 import { getArchiveService } from "@/lib/archive/service";
 import { SnapshotContentNotFoundError, type ArchiveStatus } from "@/lib/archive/types";
+import { captureFailurePresentation } from "@/app/archive-form-state";
 import { ArchiveDetailSkeleton } from "../../skeletons";
 
 const statusPresentation: Record<ArchiveStatus, { badge: string; label: string; description: string }> = {
@@ -13,6 +15,16 @@ const statusPresentation: Record<ArchiveStatus, { badge: string; label: string; 
   saved: { badge: "badge badge-accent", label: "저장 완료", description: "캡처한 페이지를 안전하게 열람할 수 있습니다." },
   failed: { badge: "badge badge-danger", label: "저장 실패", description: "페이지를 저장하지 못했습니다." },
 };
+
+function failureDescription(code: Parameters<typeof captureFailurePresentation>[0] | null): string {
+  if (!code) return "페이지를 저장하지 못했습니다.";
+  const kind = captureFailurePresentation(code).kind;
+  if (kind === "quota") return "저장 공간이 부족합니다. 공간을 확보한 뒤 다시 시도해 주세요.";
+  if (kind === "rate") return "요청 제한에 도달했습니다. 잠시 후 다시 시도해 주세요.";
+  if (kind === "concurrency") return "현재 처리 중인 요청이 많습니다. 잠시 후 다시 시도해 주세요.";
+  if (kind === "permanent") return "URL 또는 대상 페이지 조건을 확인한 뒤 새로 등록해 주세요.";
+  return "일시적인 문제로 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -38,6 +50,7 @@ async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
 
   const contentOwnerId = archive.visibility === "private" ? ownerId : undefined;
   const status = statusPresentation[archive.status];
+  const failureKind = archive.failureCode ? captureFailurePresentation(archive.failureCode).kind : null;
   let readableHtml: string | null = null;
   let hasRendered = false;
   if (archive.status === "saved" && archive.snapshot) {
@@ -71,13 +84,23 @@ async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
           ) : archive.status === "failed" ? (
             <div className="card">
               <div className="card-body">
-                <p className="error" role="status">{archive.failureMessage ?? "페이지를 저장하지 못했습니다."}</p>
+                <p className="error" role="status">{archive.failureMessage ?? failureDescription(archive.failureCode)}</p>
+                <p className="muted mt-2">{failureDescription(archive.failureCode)}</p>
+                <div className="mt-3">
+                  <ArchiveStatusAction
+                    archiveId={archive.id}
+                    retryable={Boolean(
+                      ownerId && archive.ownerId === ownerId && archive.failureCode && captureFailurePresentation(archive.failureCode).retryable,
+                    )}
+                  />
+                </div>
               </div>
             </div>
           ) : (
             <div className="card">
               <div className="card-body">
-                <p className="muted" role="status">캡처가 끝나면 읽기 화면을 표시합니다.</p>
+                <p className="muted" role="status">캡처 요청이 처리 중입니다. 진행률은 제공되지 않으며, 새로고침하지 않아도 됩니다.</p>
+                <p className="dim text-xs mt-2">장시간 그대로라면 잠시 후 이 페이지를 다시 열어 상태를 확인하세요.</p>
               </div>
             </div>
           )}
@@ -86,7 +109,7 @@ async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
         <aside className="card detail-side">
           <div className="detail-section">
             <p className="section-label">상태</p>
-            <span className={status.badge}>{status.label}</span>
+            <span className={status.badge}>{status.label}{failureKind ? ` · ${failureKind === "retryable" ? "일시적" : failureKind === "permanent" ? "입력 확인" : failureKind === "rate" ? "요청 제한" : failureKind === "quota" ? "공간 부족" : "동시 처리 제한"}` : ""}</span>
           </div>
           <div className="detail-section">
             <p className="section-label">원본 URL</p>
