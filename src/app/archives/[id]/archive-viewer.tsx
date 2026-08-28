@@ -7,7 +7,7 @@ type View = "rendered" | "readable" | "original";
 
 export function ArchiveViewer({ archiveId, readableHtml, hasRendered = false }: { archiveId: string; readableHtml: string | null; hasRendered?: boolean }) {
   const views = useMemo<View[]>(() => hasRendered ? ["rendered", "readable", "original"] : ["readable", "original"], [hasRendered]);
-  const { preference, ready } = useViewPreference();
+  const { preference, ready, setPreference } = useViewPreference();
   const [selected, setSelected] = useState<View>(hasRendered ? "rendered" : "readable");
   useEffect(() => {
     if (ready && views.includes(preference)) setSelected(preference);
@@ -22,16 +22,21 @@ export function ArchiveViewer({ archiveId, readableHtml, hasRendered = false }: 
     else if (event.key === "End") next = views.length - 1;
     else return;
     event.preventDefault();
-    setSelected(views[next]);
+    selectView(views[next]);
     tabRefs.current[next]?.focus();
+  }
+
+  function selectView(view: View) {
+    setSelected(view);
+    setPreference(view);
   }
 
   const label = (view: View) => view === "rendered" ? "렌더링 결과" : view === "readable" ? "읽기" : "원문";
 
   return (
-    <section aria-label="저장된 페이지" className="card">
+    <section aria-label="저장된 페이지" className="card archive-viewer">
       <div className="card-head">
-        <div className="seg" role="tablist" aria-label="열람 방식">
+        <div className="seg archive-tabs" role="tablist" aria-label="열람 방식" aria-orientation="horizontal">
           {views.map((view, index) => (
             <button
               key={view}
@@ -43,7 +48,7 @@ export function ArchiveViewer({ archiveId, readableHtml, hasRendered = false }: 
               aria-controls={`${view}-panel`}
               aria-selected={selected === view}
               tabIndex={selected === view ? 0 : -1}
-              onClick={() => setSelected(view)}
+              onClick={() => selectView(view)}
               onKeyDown={(event) => selectFromKeyboard(event, index)}
             >
               {label(view)}
