@@ -14,7 +14,7 @@ async function createArchive(page: Page) {
   await page.getByLabel("새 폴더 이름").fill(folderName);
   await page.getByRole("button", { name: "폴더 만들기" }).click();
   await page.goto("/");
-  await page.getByLabel("보관 폴더").selectOption({ index: 1 });
+  await page.getByLabel("보관 폴더").selectOption({ label: folderName });
   await page.getByLabel(/URL/i).fill("http://mobile-tabs.fixture.test:3101/success");
   await page.getByRole("button", { name: /아카이브 추가|보관|저장|제출|캡처/ }).click();
   await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);

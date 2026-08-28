@@ -6,7 +6,8 @@ test.beforeEach(async ({ request }) => {
 
 async function createFolderAndArchive(page: Page) {
   await page.goto("/library");
-  await page.getByLabel("새 폴더 이름").fill(`카드 테스트 ${Date.now()}`);
+  const folderName = `카드 테스트 ${Date.now()}`;
+  await page.getByLabel("새 폴더 이름").fill(folderName);
   await page.getByRole("button", { name: "폴더 만들기" }).click();
   const folderCard = page.locator(".library-folder-card", { hasText: folderName });
   await expect(folderCard).toBeVisible();
@@ -14,7 +15,7 @@ async function createFolderAndArchive(page: Page) {
 
   const longQuery = "title=" + "긴주소".repeat(32) + "&test=" + encodeURIComponent(folderName);
   await page.goto("/");
-  await page.getByLabel(/보관 폴더/).selectOption({ index: 1 });
+  await page.getByLabel(/보관 폴더/).selectOption({ label: folderName });
   await page.getByLabel(/URL/i).fill(`http://cards.fixture.test:3101/success?${longQuery}`);
   await page.getByRole("button", { name: /아카이브 추가|보관|저장|제출|캡처/ }).click();
   await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
