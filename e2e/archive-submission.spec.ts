@@ -5,7 +5,11 @@ test.beforeEach(async ({ request }) => {
 });
 
 async function submit(page: Page, url: string) {
+  await page.goto("/library");
+  await page.getByLabel(/새 폴더 이름/).fill(`E2E ${Date.now()}-${Math.random()}`);
+  await page.getByRole("button", { name: "폴더 만들기" }).click();
   await page.goto("/");
+  await page.getByLabel(/보관 폴더/).selectOption({ index: 1 });
   await page.getByLabel(/URL/i).fill(url);
   await page.getByRole("button", { name: /아카이브 추가|보관|저장|제출|캡처/ }).click();
   await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
