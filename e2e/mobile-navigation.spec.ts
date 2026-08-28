@@ -49,7 +49,7 @@ test("keeps folder links separate from the primary bottom navigation", async ({ 
   await expect(folders).toBeVisible();
   await expect(folders).toHaveCSS("overflow-x", "auto");
   await expect(primary.getByRole("link")).toHaveCount(3);
-  await expect(folders.getByRole("link").first()).toHaveAttribute("aria-current", "page");
+  await expect(folders.getByRole("link").first()).not.toHaveAttribute("aria-current");
 });
 
 test("supports keyboard navigation across viewer tabs without clipping", async ({ page }) => {
