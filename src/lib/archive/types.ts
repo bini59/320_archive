@@ -48,7 +48,7 @@ export const STORED_ASSET_MIME_TYPES = [...ASSET_MIME_TYPES, ...RENDERED_ASSET_M
 export type AssetMimeType = (typeof STORED_ASSET_MIME_TYPES)[number];
 export type AssetKey = string & { readonly __assetKey: unique symbol };
 export interface Asset { originalUrl: string; finalUrl: string; mimeType: AssetMimeType; byteLength: number; key: AssetKey }
-export interface AssetManifest { version: 1; assets: Asset[] }
+export interface AssetManifest { version: 1; assets: Asset[]; storedByteLength?: number }
 export interface CapturedAsset { originalUrl: string; finalUrl: string; mimeType: AssetMimeType; bytes: Uint8Array }
 export interface AssetFetcher { fetch(url: string, signal?: AbortSignal): Promise<CapturedAsset> }
 export interface StoredAsset { asset: Asset; bytes: Uint8Array }
