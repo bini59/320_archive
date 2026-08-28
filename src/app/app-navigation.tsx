@@ -1,33 +1,18 @@
-"use client";
+import { connection } from "next/server";
+import { getArchiveService } from "@/lib/archive/service";
+import { requireAuthenticatedSession } from "@/lib/auth";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BoxIcon, PlusIcon } from "./icons";
+export async function FolderNavigation() {
+  await connection();
+  try {
+    const identity = await requireAuthenticatedSession();
+    const folders = getArchiveService().listFolders(identity.userId);
+    return <div className="nav-folders"><span className="section-label">폴더</span>{folders.map((folder) => <a className="nav-item" href={`/library/${folder.id}`} key={folder.id}><span>{folder.name}</span></a>)}</div>;
+  } catch {
+    return null;
+  }
+}
 
-const items = [
-  { href: "/", label: "사이트 등록", Icon: PlusIcon },
-  { href: "/archives", label: "사이트 열람", Icon: BoxIcon },
-];
-
-export function AppNavigation({ mobile = false }: { mobile?: boolean }) {
-  const pathname = usePathname();
-
-  return (
-    <nav aria-label="주 메뉴" className={mobile ? "nav nav-mobile" : "nav"}>
-      {items.map(({ href, label, Icon }) => {
-        const active = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
-        return (
-          <Link
-            aria-current={active ? "page" : undefined}
-            className={`nav-item${active ? " active" : ""}`}
-            href={href}
-            key={href}
-          >
-            <Icon />
-            <span>{label}</span>
-          </Link>
-        );
-      })}
-    </nav>
-  );
+export async function AppNavigation({ mobile = false }: { mobile?: boolean }) {
+  return <><nav aria-label="주 메뉴" className={mobile ? "nav nav-mobile" : "nav"}><a className="nav-item" href="/"><span>사이트 등록</span></a><a className="nav-item" href="/archives"><span>공개 탐색</span></a><a className="nav-item" href="/library"><span>내 보관함</span></a></nav><FolderNavigation /></>;
 }

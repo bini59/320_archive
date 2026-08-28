@@ -37,10 +37,11 @@ export class ArchiveService {
     private readonly assetLimits = { maxCount: 20, maxBytes: 50 * 1024 * 1024, timeoutMs: 10_000 },
   ) {}
 
-  async create(originalUrl: string, tagsInput = ""): Promise<ArchiveCreationResult> {
+  async create(originalUrl: string, tagsInput = "", ownerId?: string, folderId: string | null = null, visibility: "private" | "public" = "private"): Promise<ArchiveCreationResult> {
+    if (process.env.NODE_ENV === "production" && !ownerId) throw new TypeError("Archive owner is required");
     const normalizedUrl = normalizeArchiveUrl(originalUrl);
     const tags = parseTags(tagsInput);
-    const result = this.repository.createOrGet({ originalUrl, normalizedUrl, tags });
+    const result = this.repository.createOrGet({ ownerId, folderId, visibility: ownerId ? visibility : (process.env.NODE_ENV === "production" ? "private" : "public"), originalUrl, normalizedUrl, tags });
     if (!result.created) return result;
 
     const release = this.limiter.tryAcquire();
@@ -119,6 +120,15 @@ export class ArchiveService {
   }
 
   listPublic(query: PublicArchiveQuery = {}): PublicArchiveResult { return this.repository.listPublic(query); }
+  syncUser(identity: { userId: string; email: string | null; name: string | null; avatarUrl: string | null; membership: { role: string; status: string } | null }) { return this.repository.upsertUser({ id: identity.userId, email: identity.email, name: identity.name, avatarUrl: identity.avatarUrl, membershipRole: identity.membership?.role ?? null, membershipStatus: identity.membership?.status ?? null }); }
+  listFolders(ownerId: string) { return this.repository.listFolders(ownerId); }
+  createFolder(ownerId: string, name: string) { return this.repository.createFolder(ownerId, name); }
+  renameFolder(ownerId: string, id: string, name: string) { return this.repository.renameFolder(ownerId, id, name); }
+  deleteFolder(ownerId: string, id: string) { return this.repository.deleteFolder(ownerId, id); }
+  setVisibility(ownerId: string, id: string, visibility: "private" | "public") { return this.repository.setVisibility(ownerId, id, visibility); }
+  listOwned(ownerId: string, folderId?: string | null): Archive[] { return this.repository.listOwned(ownerId, folderId); }
+  findOwnedById(ownerId: string, id: string): Archive | null { return this.repository.findOwnedById(ownerId, id); }
+  findPublicById(id: string): Archive | null { return this.repository.findPublicById(id); }
 
   private fail(id: string, code: CaptureFailureCode) {
     return this.repository.markFailed(id, code, CAPTURE_FAILURE_MESSAGES[code])!;
@@ -126,14 +136,34 @@ export class ArchiveService {
 
   findById(id: string): Archive | null { return this.repository.findById(id); }
 
-  async findContent(id: string, kind: SnapshotContentKind): Promise<{ archive: Archive; content: SnapshotContent } | null> {
-    const archive = this.repository.findById(id);
+  async findContent(id: string, kind: SnapshotContentKind, ownerId?: string): Promise<{ archive: Archive; content: SnapshotContent } | null> {
+    return ownerId ? this.findOwnedContent(ownerId, id, kind) : this.findPublicContent(id, kind);
+  }
+
+  async findAsset(id: string, key: string, ownerId?: string): Promise<{ archive: Archive; stored: StoredAsset } | null> {
+    return ownerId ? this.findOwnedAsset(ownerId, id, key) : this.findPublicAsset(id, key);
+  }
+
+  async findPublicContent(id: string, kind: SnapshotContentKind): Promise<{ archive: Archive; content: SnapshotContent } | null> {
+    const archive = this.repository.findPublicById(id);
+    if (!archive || !archive.snapshot) return null;
+    return { archive, content: await this.store.read(id, kind) };
+  }
+
+  async findOwnedContent(ownerId: string, id: string, kind: SnapshotContentKind): Promise<{ archive: Archive; content: SnapshotContent } | null> {
+    const archive = this.repository.findOwnedById(ownerId, id);
     if (!archive || archive.status !== "saved" || !archive.snapshot) return null;
     return { archive, content: await this.store.read(id, kind) };
   }
 
-  async findAsset(id: string, key: string): Promise<{ archive: Archive; stored: StoredAsset } | null> {
-    const archive = this.repository.findById(id);
+  async findPublicAsset(id: string, key: string): Promise<{ archive: Archive; stored: StoredAsset } | null> {
+    const archive = this.repository.findPublicById(id);
+    if (!archive || !archive.snapshot) return null;
+    return { archive, stored: await this.store.readAsset(id, key) };
+  }
+
+  async findOwnedAsset(ownerId: string, id: string, key: string): Promise<{ archive: Archive; stored: StoredAsset } | null> {
+    const archive = this.repository.findOwnedById(ownerId, id);
     if (!archive || archive.status !== "saved" || !archive.snapshot) return null;
     return { archive, stored: await this.store.readAsset(id, key) };
   }

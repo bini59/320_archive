@@ -23,7 +23,7 @@ export async function createArchiveAction(
   _previousState: ArchiveFormState,
   formData: FormData,
 ): Promise<ArchiveFormState> {
-  await requireAuthenticatedSession();
+  const identity = await requireAuthenticatedSession();
   const value = formData.get("url");
   const tags = formData.get("tags");
   if (typeof value !== "string" || value.trim() === "") {
@@ -33,7 +33,9 @@ export async function createArchiveAction(
 
   let archiveId: string;
   try {
-    const result = await getArchiveService().create(value.trim(), tags);
+    const folderId = formData.get("folderId");
+    const visibility = formData.get("visibility") === "public" ? "public" : "private";
+    const result = await getArchiveService().create(value.trim(), tags, identity.userId, typeof folderId === "string" && folderId ? folderId : null, visibility);
     const formError = formErrorForCaptureFailure(result.archive.failureCode);
     if (formError) return formError;
     archiveId = result.archive.id;
@@ -45,7 +47,40 @@ export async function createArchiveAction(
     throw error;
   }
 
-  redirect(`/archives/${archiveId}`);
+  const returnTo = formData.get("returnTo");
+  const destination = typeof returnTo === "string" && /^\/library(?:\/[^/]+)?$/.test(returnTo) ? returnTo : "/library";
+  redirect(destination);
+}
+
+export async function createFolderAction(formData: FormData): Promise<void> {
+  const identity = await requireAuthenticatedSession();
+  const name = formData.get("name");
+  if (typeof name !== "string" || !name.trim()) return;
+  getArchiveService().createFolder(identity.userId, name);
+  redirect("/library");
+}
+
+export async function renameFolderAction(formData: FormData): Promise<void> {
+  const identity = await requireAuthenticatedSession();
+  const id = formData.get("id");
+  const name = formData.get("name");
+  if (typeof id === "string" && typeof name === "string") getArchiveService().renameFolder(identity.userId, id, name);
+  redirect("/library");
+}
+
+export async function setArchiveVisibilityAction(formData: FormData): Promise<void> {
+  const identity = await requireAuthenticatedSession();
+  const id = formData.get("id");
+  const visibility = formData.get("visibility");
+  if (typeof id === "string" && (visibility === "public" || visibility === "private")) getArchiveService().setVisibility(identity.userId, id, visibility);
+  redirect("/library");
+}
+
+export async function deleteFolderAction(formData: FormData): Promise<void> {
+  const identity = await requireAuthenticatedSession();
+  const id = formData.get("id");
+  if (typeof id === "string") getArchiveService().deleteFolder(identity.userId, id);
+  redirect("/library");
 }
 
 export async function logoutAction(): Promise<void> {

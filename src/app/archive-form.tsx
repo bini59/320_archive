@@ -6,7 +6,7 @@ import {
 } from "./actions";
 import { initialArchiveFormState } from "./archive-form-state";
 
-export function ArchiveForm() {
+export function ArchiveForm({ folderId = null, returnTo = null }: { folderId?: string | null; returnTo?: string | null } = {}) {
   const [state, formAction, pending] = useActionState(
     createArchiveAction,
     initialArchiveFormState,
@@ -14,6 +14,10 @@ export function ArchiveForm() {
 
   return (
     <form action={formAction}>
+      {folderId ? <input name="folderId" type="hidden" value={folderId} /> : null}
+      {returnTo ? <input name="returnTo" type="hidden" value={returnTo} /> : null}
+      <label className="field-label" htmlFor="archive-visibility">공개 설정</label>
+      <select className="input" defaultValue="private" id="archive-visibility" name="visibility"><option value="private">비공개</option><option value="public">공개</option></select>
       <label className="field-label" htmlFor="archive-url">
         보관할 URL
       </label>

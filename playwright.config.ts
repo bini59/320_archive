@@ -25,12 +25,12 @@ export default defineConfig({
   webServer: [{
     command: "node e2e/fixture-server.mjs",
     url: "http://127.0.0.1:3101",
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     env: { ...process.env, ARCHIVE_E2E_FIXTURE_PORT: "3101" },
   }, {
     command: "pnpm dev --hostname 127.0.0.1 --port 3100",
     url: "http://127.0.0.1:3100",
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 120_000,
     env: {
       ...process.env,

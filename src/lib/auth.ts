@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getArchiveService } from "@/lib/archive/service";
 
 export interface AuthenticatedIdentity {
   userId: string;
@@ -80,7 +81,9 @@ export async function revokeSession(sid: string): Promise<void> {
 
 export async function verifySession(sid: string | undefined): Promise<AuthenticatedIdentity | null> {
   if (isE2eAuthBypass()) {
-    return { userId: "e2e", email: null, name: "E2E", avatarUrl: null, membership: { role: "member", status: "active" } };
+    const identity = { userId: "e2e", email: null, name: "E2E", avatarUrl: null, membership: { role: "member", status: "active" } };
+    getArchiveService().syncUser(identity);
+    return identity;
   }
   const { authOrigin, clientId, appSecret } = config();
   if (!sid) return null;
@@ -97,7 +100,10 @@ export async function verifySession(sid: string | undefined): Promise<Authentica
     });
     if (response.status === 401) return null;
     if (!response.ok) throw new AuthUnavailableError(`auth verify failed (${response.status})`);
-    return (await response.json()) as AuthenticatedIdentity;
+    const identity = (await response.json()) as AuthenticatedIdentity;
+    if (!identity.userId || !identity.membership) throw new AuthUnavailableError("invalid auth response");
+    getArchiveService().syncUser(identity);
+    return identity;
   } catch (error) {
     if (error instanceof AuthUnavailableError || error instanceof AuthConfigurationError) throw error;
     throw new AuthUnavailableError("auth verify unavailable");

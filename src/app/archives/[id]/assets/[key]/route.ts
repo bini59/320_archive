@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { verifySession } from "@/lib/auth";
 
 import { getArchiveService } from "@/lib/archive/service";
 import { SnapshotContentNotFoundError } from "@/lib/archive/types";
@@ -17,13 +18,19 @@ function unavailable(): Response {
   });
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string; key: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string; key: string }> }) {
   const { id, key } = await params;
   if (!UUID_PATTERN.test(id) || !ASSET_KEY_PATTERN.test(key)) return unavailable();
 
   await connection();
   try {
-    const result = await getArchiveService().findAsset(id, key);
+    const sid = request.headers.get("cookie")?.match(/(?:^|;\s*)sid=([^;]+)/)?.[1];
+    const identity = await verifySession(sid);
+    const ownerId = identity?.membership?.status === "active" ? identity.userId : undefined;
+    const service = getArchiveService();
+    const result = ownerId
+      ? (await service.findOwnedAsset(ownerId, id, key)) ?? (await service.findPublicAsset(id, key))
+      : await service.findPublicAsset(id, key);
     if (!result) return unavailable();
 
     const { asset, bytes } = result.stored;

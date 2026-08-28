@@ -1,5 +1,7 @@
 import { connection } from "next/server";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { verifySession } from "@/lib/auth";
 import { ArchiveViewer } from "./archive-viewer";
 import { getArchiveService } from "@/lib/archive/service";
 import { SnapshotContentNotFoundError, type ArchiveStatus } from "@/lib/archive/types";
@@ -25,20 +27,25 @@ export default async function ArchivePage({ params }: { params: Promise<{ id: st
 
   await connection();
   const service = getArchiveService();
-  const archive = service.findById(id);
+  const identity = await verifySession((await cookies()).get("sid")?.value);
+  const ownerId = identity?.membership?.status === "active" ? identity.userId : undefined;
+  const archive = ownerId
+    ? (service.findOwnedById(ownerId, id) ?? service.findPublicById(id))
+    : service.findPublicById(id);
   if (!archive) notFound();
 
+  const contentOwnerId = archive.visibility === "private" ? ownerId : undefined;
   const status = statusPresentation[archive.status];
   let readableHtml: string | null = null;
   let hasRendered = false;
   if (archive.status === "saved" && archive.snapshot) {
     try {
-      hasRendered = Boolean(await service.findContent(id, "rendered"));
+      hasRendered = Boolean(await service.findContent(id, "rendered", contentOwnerId));
     } catch (error) {
       if (!(error instanceof SnapshotContentNotFoundError)) throw error;
     }
     try {
-      const result = await service.findContent(id, "readable");
+      const result = await service.findContent(id, "readable", contentOwnerId);
       if (result) readableHtml = new TextDecoder().decode(result.content.bytes);
     } catch (error) {
       if (!(error instanceof SnapshotContentNotFoundError)) throw error;

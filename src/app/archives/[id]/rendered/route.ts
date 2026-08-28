@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { verifySession } from "@/lib/auth";
 
 import { getArchiveService } from "@/lib/archive/service";
 import { SnapshotContentNotFoundError } from "@/lib/archive/types";
@@ -20,13 +21,19 @@ function unavailable(): Response {
   });
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_PATTERN.test(id)) return unavailable();
 
   await connection();
   try {
-    const result = await getArchiveService().findContent(id, "rendered");
+    const sid = request.headers.get("cookie")?.match(/(?:^|;\s*)sid=([^;]+)/)?.[1];
+    const identity = await verifySession(sid);
+    const ownerId = identity?.membership?.status === "active" ? identity.userId : undefined;
+    const service = getArchiveService();
+    const result = ownerId
+      ? (await service.findOwnedContent(ownerId, id, "rendered")) ?? (await service.findPublicContent(id, "rendered"))
+      : await service.findPublicContent(id, "rendered");
     if (!result) return unavailable();
     return new Response(new Blob([new Uint8Array(result.content.bytes)], { type: "text/html; charset=utf-8" }), { headers: CONTENT_HEADERS });
   } catch (error) {

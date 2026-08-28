@@ -125,6 +125,18 @@ describe("ArchiveService synchronous capture", () => {
     expect(JSON.parse(await readFile(path.join(archiveRoot, result.archive.id, "assets.json"), "utf8")).assets).toHaveLength(2);
   });
 
+  it("authorizes private content by owner while leaving public content readable", async () => {
+    const { service } = await fixture();
+    const privateArchive = await service.create("https://example.com/private", "", "owner-1", null, "private");
+    const publicArchive = await service.create("https://example.com/public", "", "owner-1", null, "public");
+
+    expect(await service.findContent(privateArchive.archive.id, "original")).toBeNull();
+    expect(await service.findContent(privateArchive.archive.id, "original", "other-user")).toBeNull();
+    expect(await service.findContent(privateArchive.archive.id, "original", "owner-1")).toMatchObject({ archive: { id: privateArchive.archive.id } });
+    expect(await service.findContent(publicArchive.archive.id, "original")).toMatchObject({ archive: { id: publicArchive.archive.id } });
+    expect(await service.findPublicContent(publicArchive.archive.id, "original")).toMatchObject({ archive: { id: publicArchive.archive.id } });
+  });
+
   it("does not expose content for pending or failed archives", async () => {
     const { service } = await fixture({ capture: new StubCapture(new CaptureError("timeout")) });
     const failed = await service.create("https://example.com/fail");
