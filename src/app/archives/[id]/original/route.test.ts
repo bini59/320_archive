@@ -46,7 +46,7 @@ describe("GET /archives/[id]/original", () => {
     expect(csp).toContain("base-uri 'none'");
     expect(csp).toContain("form-action 'none'");
     expect(csp).toContain("frame-ancestors 'self'");
-    expect(csp).toMatch(/(?:^|;)\s*sandbox(?:;|$)/);
+    expect(csp).toMatch(/(?:^|;)\s*sandbox allow-same-origin(?:;|$)/);
     expect(findPublicContent).toHaveBeenCalledWith(VALID_ID, "original");
   });
 

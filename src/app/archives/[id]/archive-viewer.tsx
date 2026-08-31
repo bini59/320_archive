@@ -63,7 +63,7 @@ export function ArchiveViewer({ archiveId, readableHtml, hasRendered = false }: 
             <iframe
               className="snapshot-frame"
               src={`/archives/${encodeURIComponent(archiveId)}/rendered`}
-              sandbox=""
+              sandbox="allow-same-origin"
               referrerPolicy="no-referrer"
               title="보관된 페이지 렌더링 결과"
             />
@@ -90,7 +90,7 @@ export function ArchiveViewer({ archiveId, readableHtml, hasRendered = false }: 
           <iframe
             className="snapshot-frame"
             src={`/archives/${encodeURIComponent(archiveId)}/original`}
-            sandbox=""
+            sandbox="allow-same-origin"
             referrerPolicy="no-referrer"
             title="보관된 페이지 원문"
           />
