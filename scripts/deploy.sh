@@ -9,6 +9,7 @@ VOLUME_NAME=${VOLUME_NAME:-320_archive_data}
 READINESS_TIMEOUT_SECONDS=${READINESS_TIMEOUT_SECONDS:-120}
 READINESS_INTERVAL_SECONDS=${READINESS_INTERVAL_SECONDS:-2}
 BACKUP_RETENTION_COUNT=${BACKUP_RETENTION_COUNT:-10}
+IMAGE_RETENTION_COUNT=${IMAGE_RETENTION_COUNT:-3}
 IMAGE=${1:-}
 
 compose() {
@@ -29,6 +30,8 @@ test ${#sha} -eq 40 || { echo "immutable sha-<40 hex> tag required" >&2; exit 2;
 case "$sha" in *[!0-9a-f]*) echo "immutable sha-<40 hex> tag required" >&2; exit 2;; esac
 case "$BACKUP_RETENTION_COUNT" in ''|*[!0-9]*) echo "BACKUP_RETENTION_COUNT must be a positive integer" >&2; exit 2;; esac
 test "$BACKUP_RETENTION_COUNT" -gt 0 || { echo "BACKUP_RETENTION_COUNT must be positive" >&2; exit 2; }
+case "$IMAGE_RETENTION_COUNT" in ''|*[!0-9]*) echo "IMAGE_RETENTION_COUNT must be a positive integer" >&2; exit 2;; esac
+test "$IMAGE_RETENTION_COUNT" -gt 0 || { echo "IMAGE_RETENTION_COUNT must be positive" >&2; exit 2; }
 
 container_id=$(compose ps -q app)
 previous_image=$(test -n "$container_id" && docker inspect --format '{{.Config.Image}}' "$container_id" 2>/dev/null || true)
@@ -101,4 +104,23 @@ fi
 
 stopped=0
 completed=1
-echo "deployed $IMAGE; backup: $backup_path"
+
+image_repository=${IMAGE%:*}
+image_tags=$(docker image ls --format '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}' "$image_repository" 2>/dev/null | awk -v repository="$image_repository" '$1 ~ ("^" repository ":sha-[0-9a-f]+$") { print $1 "\t" $2 " " $3 " " $4 " " $5 " " $6 }' | sort -k2r | cut -f1)
+keep_images=$(printf '%s\n' "$IMAGE" $image_tags | awk 'NF && !seen[$0]++' | awk -v keep="$IMAGE_RETENTION_COUNT" 'NR <= keep')
+if test -n "$previous_image"; then
+  printf '%s\n' "$keep_images" | grep -F -x "$previous_image" >/dev/null 2>&1 || keep_images=$(printf '%s\n' "$keep_images" "$previous_image")
+fi
+cleanup_failures=0
+for image in $image_tags; do
+  if ! printf '%s\n' "$keep_images" | grep -F -x "$image" >/dev/null 2>&1; then
+    if ! docker image rm "$image" >/dev/null 2>&1; then
+      cleanup_failures=$((cleanup_failures + 1))
+    fi
+  fi
+done
+if test "$cleanup_failures" -gt 0; then
+  echo "warning: failed to remove $cleanup_failures old image(s)" >&2
+fi
+
+echo "deployed $IMAGE; backup: $backup_path; image retention: $IMAGE_RETENTION_COUNT"
