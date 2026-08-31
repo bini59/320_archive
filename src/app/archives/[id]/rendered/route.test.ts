@@ -43,7 +43,7 @@ describe("GET /archives/[id]/rendered", () => {
     expect(response.headers.get("content-security-policy")).toContain("font-src 'self'");
     expect(response.headers.get("content-security-policy")).toContain("script-src 'none'");
     expect(response.headers.get("content-security-policy")).toContain("connect-src 'none'");
-    expect(response.headers.get("content-security-policy")).toContain("sandbox");
+    expect(response.headers.get("content-security-policy")).toContain("sandbox allow-same-origin");
     expect(findPublicContent).toHaveBeenCalledWith(ID, "rendered");
   });
 

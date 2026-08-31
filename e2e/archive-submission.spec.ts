@@ -66,7 +66,7 @@ test("shows the sanitized reading view after selecting it", async ({ page }) => 
   }
 });
 
-test("isolates original HTML in a tokenless sandbox without requests or navigation", async ({ page, request }) => {
+test("isolates original HTML in a same-origin sandbox without requests or navigation", async ({ page, request }) => {
   await request.get("http://127.0.0.1:3101/reset-requests");
   await submit(page, "http://isolated.fixture.test:3101/success");
   await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
@@ -75,7 +75,7 @@ test("isolates original HTML in a tokenless sandbox without requests or navigati
   await page.getByRole("tab", { name: "원문" }).click();
   const frame = page.locator('iframe[title*="원문"]');
   await expect(frame).toBeVisible();
-  await expect(frame).toHaveAttribute("sandbox", "");
+  await expect(frame).toHaveAttribute("sandbox", "allow-same-origin");
   await request.get("http://127.0.0.1:3101/reset-requests");
   await page.waitForTimeout(300);
   await expect(page).toHaveURL(detailUrl);

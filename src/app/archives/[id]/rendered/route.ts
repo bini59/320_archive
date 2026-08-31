@@ -9,7 +9,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 const CONTENT_HEADERS = {
   "Cache-Control": "private, no-store",
   "Content-Disposition": "inline",
-  "Content-Security-Policy": "default-src 'none'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; frame-src 'none'; child-src 'none'; script-src 'none'; style-src 'self'; connect-src 'none'; media-src 'none'; font-src 'self'; object-src 'none'; worker-src 'none'; manifest-src 'none'; sandbox",
+  "Content-Security-Policy": "default-src 'none'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; frame-src 'none'; child-src 'none'; script-src 'none'; style-src 'self'; connect-src 'none'; media-src 'none'; font-src 'self'; object-src 'none'; worker-src 'none'; manifest-src 'none'; sandbox allow-same-origin",
   "Content-Type": "text/html; charset=utf-8",
   "X-Content-Type-Options": "nosniff",
 } as const;
