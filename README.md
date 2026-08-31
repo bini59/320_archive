@@ -54,7 +54,7 @@ pnpm build
 | `ARCHIVE_ASSET_TOTAL_MAX_BYTES` | `52428800` | 한 아카이브의 전체 자산 최대 바이트 수 |
 | `ARCHIVE_ASSET_MAX_COUNT` | `20` | 첨부파일 후보의 최대 개수 |
 | `ARCHIVE_ASSET_TIMEOUT_MS` | `10000` | 첨부파일 phase의 전체 제한 시간(ms) |
-| `ARCHIVE_RENDERED_MAX_REQUESTS` | `100` | 브라우저 캡처 중 허용하는 HTTP(S) 요청 수 |
+| `ARCHIVE_RENDERED_MAX_REQUESTS` | `500` | 브라우저 캡처 중 허용하는 HTTP(S) 요청 수 |
 | `ARCHIVE_RENDERED_MAX_BYTES` | `10485760` | post-hydration `rendered.html` 최대 바이트 수 |
 | `ARCHIVE_RENDERED_SETTLE_TIMEOUT_MS` | `2000` | `networkidle`/font readiness 대기 상한(ms) |
 
