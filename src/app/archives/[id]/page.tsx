@@ -68,7 +68,7 @@ async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
   }
 
   return (
-    <main className="page">
+    <div className="page">
       <div className="page-head">
         <div>
           <h1>{archive.snapshot?.title ?? "보관 요청 상세"}</h1>
@@ -143,7 +143,7 @@ async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
           ) : null}
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
 

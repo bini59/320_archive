@@ -3,7 +3,7 @@ import { BoxIcon } from "@/app/icons";
 
 export default function ArchiveNotFound() {
   return (
-    <main className="page">
+    <div className="page">
       <div className="card">
         <div className="empty">
           <span className="empty-mark"><BoxIcon size={17} /></span>
@@ -12,6 +12,6 @@ export default function ArchiveNotFound() {
           <Link className="btn" href="/">홈으로 돌아가기</Link>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -14,6 +14,7 @@
     "setup:auth": "sh scripts/setup-auth.sh"
   },
   "dependencies": {
+    "@bini59/design": "github:bini59/324_bini59_design#v0.3.0",
     "next": "16.2.12",
     "playwright": "1.62.1",
     "react": "19.2.4",

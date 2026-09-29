@@ -4,7 +4,7 @@ import type { Folder } from "@/lib/archive/types";
 import Link from "next/link";
 
 export function LibraryView({ children }: { children: React.ReactNode }) {
-  return <main className="page library-page"><div className="page-head"><div><h1>내 보관함</h1><p>보관한 사이트를 폴더별로 관리하세요.</p></div></div>{children}</main>;
+  return <div className="page library-page"><div className="page-head"><div><h1>내 보관함</h1><p>보관한 사이트를 폴더별로 관리하세요.</p></div></div>{children}</div>;
 }
 
 export function LibraryDataView({ folders, returnTo }: { folders: Folder[]; returnTo?: string }) {

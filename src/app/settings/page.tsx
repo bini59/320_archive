@@ -22,7 +22,7 @@ export default function SettingsPage() {
   }, [saved]);
 
   return (
-    <main className="page">
+    <div className="page">
       <div className="page-head">
         <div>
           <h1>사이트 환경설정</h1>
@@ -64,6 +64,6 @@ export default function SettingsPage() {
       </div>
 
       {saved ? <p aria-live="polite" className="toast">저장되었습니다.</p> : null}
-    </main>
+    </div>
   );
 }
