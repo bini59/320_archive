@@ -25,9 +25,9 @@ export function resolveTheme(preference: ThemePreference, systemPrefersDark: boo
 }
 
 
-export function applyThemePreference(preference: ThemePreference, root: Element): void {
-  if (preference === "system") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", preference);
+// Design tokens default to dark, so system mode must still write the resolved theme.
+export function applyThemePreference(preference: ThemePreference, root: Element, systemPrefersDark: boolean): void {
+  root.setAttribute("data-theme", resolveTheme(preference, systemPrefersDark));
 }
 
 export function readStoredPreference<T>(key: string, parse: (value: string | null) => T, fallback: T): T {
@@ -46,4 +46,4 @@ export function writeStoredPreference(key: string, value: string): void {
   }
 }
 
-export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");}catch(e){}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t);}catch(e){}})();`;

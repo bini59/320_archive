@@ -36,12 +36,14 @@ describe("preferences", () => {
     expect(resolveTheme("light", true)).toBe("light");
   });
 
-  it("clears data-theme for system so the prefers-color-scheme tokens apply", () => {
+  it("writes the resolved theme to data-theme, including system mode", () => {
     const root = fakeRoot();
-    applyThemePreference("dark", root);
+    applyThemePreference("dark", root, false);
     expect(root.attributes.get("data-theme")).toBe("dark");
-    applyThemePreference("system", root);
-    expect(root.attributes.has("data-theme")).toBe(false);
+    applyThemePreference("system", root, false);
+    expect(root.attributes.get("data-theme")).toBe("light");
+    applyThemePreference("system", root, true);
+    expect(root.attributes.get("data-theme")).toBe("dark");
   });
 
   it("keeps the boot script self-contained and guarded", () => {

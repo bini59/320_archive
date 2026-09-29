@@ -20,36 +20,38 @@ async function createArchive(page: Page) {
   await expect(page).toHaveURL(/\/archives\/[0-9a-f-]{36}$/);
 }
 
-test("keeps primary navigation fixed at the mobile bottom with an active route", async ({ page }) => {
+test("opens primary navigation in a drawer with the active route", async ({ page }) => {
   await page.goto("/archives");
 
-  const navigation = page.locator(".mobile-nav .nav-mobile");
+  await page.getByRole("button", { name: "메뉴 열기" }).click();
+  const navigation = page.getByRole("dialog", { name: "주 메뉴" });
   await expect(navigation).toBeVisible();
-  await expect(navigation).toHaveCSS("position", "fixed");
-  await expect(navigation).toHaveCSS("bottom", "0px");
   await expect(navigation.getByRole("link", { name: "공개 탐색" })).toHaveAttribute("aria-current", "page");
-  await expect(navigation.getByRole("link")).toHaveCount(3);
 
   const metrics = await page.locator("body").evaluate((body) => ({
     width: document.documentElement.clientWidth,
     scrollWidth: body.scrollWidth,
   }));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width);
+
+  await navigation.getByRole("link", { name: "사이트 등록" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(navigation).toBeHidden();
 });
 
-test("keeps folder links separate from the primary bottom navigation", async ({ page }) => {
+test("nests folder links under the library item", async ({ page }) => {
+  const folderName = `Mobile folder ${Date.now()}`;
   await page.goto("/library");
-  await page.getByLabel("새 폴더 이름").fill(`Mobile folder ${Date.now()}`);
+  await page.getByLabel("새 폴더 이름").fill(folderName);
   await page.getByRole("button", { name: "폴더 만들기" }).click();
   await page.goto("/library");
 
-  const primary = page.locator(".mobile-nav .nav-mobile");
-  const folders = page.locator(".mobile-nav .mobile-nav-folders");
-  await expect(primary).toBeVisible();
-  await expect(folders).toBeVisible();
-  await expect(folders).toHaveCSS("overflow-x", "auto");
-  await expect(primary.getByRole("link")).toHaveCount(3);
-  await expect(folders.getByRole("link").first()).not.toHaveAttribute("aria-current");
+  await page.getByRole("button", { name: "메뉴 열기" }).click();
+  const library = page.getByRole("dialog", { name: "주 메뉴" }).getByRole("listitem").filter({ has: page.getByRole("link", { name: "내 보관함", exact: true }) });
+  await expect(library.getByRole("link", { name: "내 보관함", exact: true })).toHaveAttribute("aria-current", "page");
+  const folder = library.getByRole("link", { name: folderName });
+  await expect(folder).toBeVisible();
+  await expect(folder).not.toHaveAttribute("aria-current");
 });
 
 test("supports keyboard navigation across viewer tabs without clipping", async ({ page }) => {

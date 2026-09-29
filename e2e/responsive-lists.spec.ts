@@ -12,7 +12,7 @@ test.describe("responsive archive lists", () => {
     await expect(page.locator(".public-archives-empty")).toContainText("결과가 없습니다");
 
     const pageWidth = await page.evaluate(() => document.documentElement.clientWidth);
-    expect(await page.locator("main.public-archives-page").evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(pageWidth);
+    expect(await page.locator(".public-archives-page").evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(pageWidth);
     expect(await toolbar.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(pageWidth);
   });
 
@@ -29,6 +29,6 @@ test.describe("responsive archive lists", () => {
     const folder = page.locator(".library-folder-card", { hasText: folderName });
     await expect(folder).toBeVisible();
     expect(await folder.evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(pageWidth);
-    expect(await page.locator("main.library-page").evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(pageWidth);
+    expect(await page.locator(".library-page").evaluate((element) => element.scrollWidth)).toBeLessThanOrEqual(pageWidth);
   });
 });

@@ -1,14 +1,7 @@
 import { cookies } from "next/headers";
 import { accountCenterUrl, verifySession } from "@/lib/auth";
-import { AppNavigation } from "./app-navigation";
-import { Breadcrumb } from "./breadcrumb";
-import { ThemeToggle } from "./theme-toggle";
-import { CommandPalette } from "./command-palette";
-import { ProfileMenu } from "./profile-menu";
-import { SettingsIcon } from "./icons";
-import { ActiveNavItem } from "./active-nav-item";
-import Link from "next/link";
 import { getArchiveService } from "@/lib/archive/service";
+import { ArchiveShell } from "./archive-shell";
 
 async function currentIdentity() {
   try {
@@ -20,67 +13,16 @@ async function currentIdentity() {
   }
 }
 
-function initials(name: string | null, email: string | null) {
-  return (name || email || "?").slice(0, 1).toUpperCase();
-}
-
-function safeAvatarUrl(value: string | null) {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const identity = await currentIdentity();
 
-  if (!identity) return children;
+  // Public visitors (shared archive links) get the page without the signed-in shell.
+  if (!identity) return <main className="w-full max-w-[1240px] px-[22px] pt-[26px] pb-[60px]">{children}</main>;
 
-  const displayName = identity.name || identity.email || "사용자";
-  const folders = getArchiveService().listFolders(identity.userId);
-  const avatarUrl = safeAvatarUrl(identity.avatarUrl);
-  const fallback = initials(identity.name, identity.email);
-
+  const { userId, email, name, avatarUrl } = identity;
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <Link className="brand" href="/">
-          <img alt="" src="https://static.bini59.dev/logo/logo-128.png" />
-          <span>
-            <span className="brand-name">Archive</span>
-            <span className="brand-host mono">archive.bini59.dev</span>
-          </span>
-        </Link>
-        <AppNavigation folders={folders} />
-        <div className="sidebar-foot">
-          <ThemeToggle />
-<ActiveNavItem href="/settings">
-             <SettingsIcon />
-             <span>사이트 환경설정</span>
-           </ActiveNavItem>
-        </div>
-      </aside>
-      <div className="content">
-        <header className="topbar">
-          <Breadcrumb />
-          <span className="topbar-spacer" />
-          <CommandPalette />
-          <ProfileMenu
-            accountCenterHref={accountCenterUrl()}
-            avatarUrl={avatarUrl}
-            displayName={displayName}
-            email={identity.email}
-            fallback={fallback}
-          />
-        </header>
-        <div className="mobile-nav">
-          <AppNavigation folders={folders} mobile />
-        </div>
-        {children}
-      </div>
-    </div>
+    <ArchiveShell accountCenterUrl={accountCenterUrl()} folders={getArchiveService().listFolders(userId)} user={{ userId, email, name, avatarUrl, membership: null }}>
+      {children}
+    </ArchiveShell>
   );
 }

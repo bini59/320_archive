@@ -39,9 +39,12 @@ export function useThemePreference(): {
     return () => media.removeEventListener("change", onChange);
   }, []);
 
+  useEffect(() => {
+    if (ready) applyThemePreference(preference, document.documentElement, systemDark);
+  }, [preference, ready, systemDark]);
+
   const setPreference = useCallback((next: ThemePreference) => {
     writeStoredPreference(THEME_STORAGE_KEY, next);
-    applyThemePreference(next, document.documentElement);
     setPreferenceState(next);
   }, []);
 

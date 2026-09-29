@@ -8,7 +8,7 @@ export function archiveTitle({ title, originalUrl }: Pick<Archive, "originalUrl"
 }
 
 export function FolderView({ children }: { children: React.ReactNode }) {
-  return <main className="page">{children}</main>;
+  return <div className="page">{children}</div>;
 }
 
 export function FolderDataView({ folder, archives }: { folder: Folder; archives: Archive[] }) {
