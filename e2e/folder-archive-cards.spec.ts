@@ -55,5 +55,7 @@ test.describe("folder archive cards", () => {
     await expect(page.locator(".folder-archive-cards")).toBeHidden();
     await expect(page.locator(".folder-archive-table").getByRole("combobox")).toBeVisible();
     await expect(page.locator(".folder-archive-table").getByRole("link", { name: "열기" })).toBeVisible();
+    const { clientWidth, scrollWidth } = await page.evaluate(() => ({ clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
   });
 });
