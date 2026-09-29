@@ -46,15 +46,15 @@ test.describe("folder archive cards", () => {
     await expect(page.locator(".folder-archive-card").getByRole("combobox")).toHaveValue("public");
   });
 
-  test("keeps the archive table for desktop and hides the mobile card list", async ({ page }) => {
+  test("uses the same archive cards on desktop", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await createFolderAndArchive(page);
 
-    await expect(page.locator(".folder-archive-table")).toBeVisible();
-    await expect(page.locator(".folder-archive-table tbody tr")).toHaveCount(1);
-    await expect(page.locator(".folder-archive-cards")).toBeHidden();
-    await expect(page.locator(".folder-archive-table").getByRole("combobox")).toBeVisible();
-    await expect(page.locator(".folder-archive-table").getByRole("link", { name: "열기" })).toBeVisible();
+    const card = page.locator(".folder-archive-card");
+    await expect(card).toHaveCount(1);
+    await expect(page.locator("table")).toHaveCount(0);
+    await expect(card.getByRole("combobox")).toBeVisible();
+    await expect(card.getByRole("link", { name: "열기" })).toBeVisible();
     const { clientWidth, scrollWidth } = await page.evaluate(() => ({ clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
   });
