@@ -79,6 +79,26 @@ export async function revokeSession(sid: string): Promise<void> {
   }
 }
 
+// 321_auth 탈퇴 큐 소비: 이 앱이 아직 확인하지 않은 탈퇴자의 데이터를 지우고 ack 한다.
+// 지우기나 ack 가 실패하면 throw — ack 안 된 건은 다음 주기에 다시 내려온다.
+export async function syncDeletions(remove: (userId: string) => Promise<void>): Promise<number> {
+  const { authOrigin, clientId, appSecret } = config();
+  const headers = { "x-app-secret": appSecret };
+  const url = new URL("/deletions", authOrigin);
+  url.searchParams.set("client_id", clientId);
+  const response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) });
+  if (!response.ok) throw new AuthUnavailableError(`auth deletions failed (${response.status})`);
+  const { deletions } = (await response.json()) as { deletions: { userId: string }[] };
+  for (const { userId } of deletions) {
+    await remove(userId);
+    const ack = new URL(`/deletions/${encodeURIComponent(userId)}/ack`, authOrigin);
+    ack.searchParams.set("client_id", clientId);
+    const acked = await fetch(ack, { method: "POST", headers, signal: AbortSignal.timeout(10_000) });
+    if (!acked.ok) throw new AuthUnavailableError(`auth deletion ack failed (${acked.status})`);
+  }
+  return deletions.length;
+}
+
 export async function verifySession(sid: string | undefined): Promise<AuthenticatedIdentity | null> {
   if (isE2eAuthBypass()) {
     const identity = { userId: "e2e", email: null, name: "E2E", avatarUrl: null, membership: { role: "member", status: "active" } };
