@@ -126,6 +126,23 @@ describe("ArchiveService synchronous capture", () => {
     expect(service.listOwned("owner-1")).toHaveLength(1);
   });
 
+  it("deletes a removed user's snapshots, rows, and search index while keeping other users", async () => {
+    const { archiveRoot, service } = await fixture();
+    for (const userId of ["gone", "kept"]) service.syncUser({ userId, email: null, name: userId, avatarUrl: null, membership: { role: "member", status: "active" } });
+    service.createFolder("gone", "Folder");
+    const gone = await service.create("https://example.com/gone", "", "gone", null, "public");
+    const kept = await service.create("https://example.com/kept", "", "kept", null, "public");
+
+    await service.deleteUser("gone");
+    await service.deleteUser("never-existed");
+
+    expect(service.listOwned("gone")).toEqual([]);
+    expect(service.listFolders("gone")).toEqual([]);
+    expect(service.listPublic().items.map((item) => item.id)).toEqual([kept.archive.id]);
+    expect(await readdir(archiveRoot)).toEqual([kept.archive.id]);
+    expect(gone.archive.status).toBe("saved");
+  });
+
   it("rejects unauthorized and non-retryable retries without capturing", async () => {
     const capture = new SequenceCapture([new CaptureError("invalid_url")]);
     const { service } = await fixture({ capture });

@@ -41,6 +41,7 @@ export interface ArchiveRepository {
   createFolder(ownerId: string, name: string): Folder;
   listFolders(ownerId: string): Folder[];
   deleteFolder(ownerId: string, id: string): boolean;
+  deleteUser(id: string): void;
   renameFolder(ownerId: string, id: string, name: string): Folder | null;
   setVisibility(ownerId: string, id: string, visibility: ArchiveVisibility): boolean;
   reserveBudget(input: { windowMs: number; maxSubmissions: number; maxStoredBytes: number; reserveBytes: number; timeoutMs: number }): BudgetReservation | null;

@@ -147,6 +147,9 @@ export class ArchiveService {
   createFolder(ownerId: string, name: string) { return this.repository.createFolder(ownerId, name); }
   renameFolder(ownerId: string, id: string, name: string) { return this.repository.renameFolder(ownerId, id, name); }
   deleteFolder(ownerId: string, id: string) { return this.repository.deleteFolder(ownerId, id); }
+  // 321_auth 탈퇴 반영: 스냅샷 파일을 먼저 지우고 DB 행을 지운다. 중간에 실패해도 ack 전이라 다음 동기화에서 다시 시도된다.
+  // ponytail: storage_budget.used_bytes 는 되돌리지 않는다(아카이브별 저장 바이트를 따로 기록하지 않음). 한도가 문제되면 디스크 기준 재계산을 추가.
+  async deleteUser(id: string) { for (const archive of this.repository.listOwned(id)) await this.store.cleanup(archive.id); this.repository.deleteUser(id); }
   setVisibility(ownerId: string, id: string, visibility: "private" | "public") { return this.repository.setVisibility(ownerId, id, visibility); }
   listOwned(ownerId: string, folderId?: string | null): Archive[] { return this.repository.listOwned(ownerId, folderId); }
   findOwnedById(ownerId: string, id: string): Archive | null { return this.repository.findOwnedById(ownerId, id); }
