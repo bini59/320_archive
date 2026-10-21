@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { mkdir, open, realpath, rename, rm } from "node:fs/promises";
+import { lstat, mkdir, open, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import type { Asset, AssetKey, AssetManifest, AssetMimeType, CapturedAsset, Snapshot, SnapshotContent, SnapshotContentKind, SnapshotStore, StoredAsset } from "./types";
 import { SnapshotContentNotFoundError } from "./types";
@@ -78,6 +78,23 @@ export class LocalSnapshotStore implements SnapshotStore {
     } catch {
       throw new SnapshotContentNotFoundError(id, kind);
     }
+  }
+
+  // 저장 바이트가 기록되지 않은 예전 아카이브를 삭제할 때 쓰인다. 디스크의 일반 파일 크기 합은 save()의 storedByteLength 와 같다.
+  async measure(id: string): Promise<number> {
+    this.validateId(id);
+    const walk = async (dir: string): Promise<number> => {
+      let entries;
+      try { entries = await readdir(dir, { withFileTypes: true }); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0; throw error; }
+      let total = 0;
+      for (const entry of entries) {
+        const target = path.join(dir, entry.name);
+        if (entry.isDirectory()) total += await walk(target);
+        else if (entry.isFile()) total += (await lstat(target)).size;
+      }
+      return total;
+    };
+    return walk(path.join(this.archiveRoot, id));
   }
 
   async cleanup(id: string): Promise<void> {

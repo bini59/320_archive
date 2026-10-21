@@ -8,7 +8,7 @@ const str = (v: unknown) => typeof v === "string" ? v : null;
 function archive(row: Row, tags: Tag[] = []): Archive {
   const status = String(row.status) as Archive["status"];
   if (!ARCHIVE_STATUSES.includes(status)) throw new Error("Unknown status");
-  return { id: String(row.id), ownerId: String(row.owner_id), folderId: str(row.folder_id), visibility: String(row.visibility) as ArchiveVisibility, originalUrl: String(row.original_url), normalizedUrl: String(row.normalized_url), status, createdAt: String(row.created_at), snapshot: status === "saved" ? { title: str(row.title), description: str(row.description), capturedAt: String(row.captured_at), finalUrl: String(row.final_url), byteLength: Number(row.byte_length) } : null, failureCode: str(row.failure_code) as CaptureFailureCode | null, failureMessage: str(row.failure_message), tags };
+  return { id: String(row.id), ownerId: String(row.owner_id), folderId: str(row.folder_id), visibility: String(row.visibility) as ArchiveVisibility, originalUrl: String(row.original_url), normalizedUrl: String(row.normalized_url), status, createdAt: String(row.created_at), snapshot: status === "saved" ? { title: str(row.title), description: str(row.description), capturedAt: String(row.captured_at), finalUrl: String(row.final_url), byteLength: Number(row.byte_length) } : null, storedBytes: row.stored_bytes === null || row.stored_bytes === undefined ? null : Number(row.stored_bytes), failureCode: str(row.failure_code) as CaptureFailureCode | null, failureMessage: str(row.failure_message), tags };
 }
 
 export class SqliteArchiveRepository implements ArchiveRepository {
@@ -30,7 +30,7 @@ export class SqliteArchiveRepository implements ArchiveRepository {
       this.database.exec(`
         CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,email TEXT,name TEXT,avatar_url TEXT,status TEXT NOT NULL CHECK(status IN ('active','disabled')),membership_role TEXT,membership_status TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL) STRICT;
         CREATE TABLE IF NOT EXISTS folders(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 100),created_at TEXT NOT NULL,updated_at TEXT NOT NULL,UNIQUE(owner_id,name)) STRICT;
-        CREATE TABLE IF NOT EXISTS archives(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private','public')),original_url TEXT NOT NULL,normalized_url TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','saved','failed')),created_at TEXT NOT NULL,title TEXT,description TEXT,captured_at TEXT,final_url TEXT,byte_length INTEGER,failure_code TEXT,failure_message TEXT,UNIQUE(owner_id,normalized_url)) STRICT;
+        CREATE TABLE IF NOT EXISTS archives(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private','public')),original_url TEXT NOT NULL,normalized_url TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('pending','saved','failed')),created_at TEXT NOT NULL,title TEXT,description TEXT,captured_at TEXT,final_url TEXT,byte_length INTEGER,failure_code TEXT,failure_message TEXT,stored_bytes INTEGER,UNIQUE(owner_id,normalized_url)) STRICT;
         CREATE TABLE IF NOT EXISTS capture_events(id INTEGER PRIMARY KEY,created_at INTEGER NOT NULL) STRICT;
         CREATE TABLE IF NOT EXISTS storage_budget(singleton INTEGER PRIMARY KEY CHECK(singleton=1),used_bytes INTEGER NOT NULL,reserved_bytes INTEGER NOT NULL) STRICT;
         CREATE TABLE IF NOT EXISTS budget_reservations(id TEXT PRIMARY KEY,bytes INTEGER NOT NULL,created_at INTEGER NOT NULL,expires_at INTEGER NOT NULL) STRICT;
@@ -41,8 +41,13 @@ export class SqliteArchiveRepository implements ArchiveRepository {
         CREATE INDEX IF NOT EXISTS archives_owner_order ON archives(owner_id,folder_id,created_at DESC,id DESC);
         CREATE INDEX IF NOT EXISTS archives_public_order ON archives(visibility,status,captured_at DESC,id DESC);
         CREATE INDEX IF NOT EXISTS archive_tags_by_tag ON archive_tags(tag_id,archive_id);
-        PRAGMA user_version=5;
+        CREATE TABLE IF NOT EXISTS archive_file_cleanups(archive_id TEXT PRIMARY KEY,requested_at TEXT NOT NULL) STRICT;
       `);
+      // v6: 삭제 시 저장 용량을 정확히 되돌리려고 아카이브별 저장 바이트(storage_budget 에 더한 값)를 기록한다.
+      // v5 이전 행은 NULL 이며 삭제 시 디스크에서 측정한다.
+      const columns = Array.from((this.database.prepare("PRAGMA table_info(archives)") as any).all() as Iterable<Row>, r => String(r.name));
+      if (!columns.includes("stored_bytes")) this.database.exec("ALTER TABLE archives ADD COLUMN stored_bytes INTEGER");
+      this.database.exec("PRAGMA user_version=6");
       this.database.exec("COMMIT");
     } catch (error) {
       this.database.exec("ROLLBACK");
@@ -52,6 +57,39 @@ export class SqliteArchiveRepository implements ArchiveRepository {
 
   private tags(id: string): Tag[] { return Array.from((this.database.prepare("SELECT t.name,t.slug FROM tags t JOIN archive_tags at ON at.tag_id=t.id WHERE at.archive_id=? ORDER BY t.slug") as any).all(id) as Iterable<Row>).map(r => ({ name: String(r.name), slug: String(r.slug) })); }
   private addTags(id: string, tags: Tag[]) { for (const tag of tags) { this.database.prepare("INSERT INTO tags(name,slug) VALUES(?,?) ON CONFLICT(slug) DO NOTHING").run(tag.name, tag.slug); this.database.prepare("INSERT OR IGNORE INTO archive_tags(archive_id,tag_id) SELECT ?,id FROM tags WHERE slug=?").run(id, tag.slug); } }
+  private pruneTags() { this.database.prepare("DELETE FROM tags WHERE NOT EXISTS (SELECT 1 FROM archive_tags at WHERE at.tag_id=tags.id)").run(); }
+  private transaction<T>(work: () => T): T { this.database.exec("BEGIN IMMEDIATE"); try { const result = work(); this.database.exec("COMMIT"); return result; } catch (error) { this.database.exec("ROLLBACK"); throw error; } }
+
+  replaceTags(id: string, tags: Tag[]): Archive | null {
+    const replaced = this.transaction(() => {
+      if (!this.database.prepare("SELECT id FROM archives WHERE id=?").get(id)) return false;
+      this.database.prepare("DELETE FROM archive_tags WHERE archive_id=?").run(id);
+      this.addTags(id, tags);
+      this.pruneTags();
+      return true;
+    });
+    return replaced ? this.findById(id) : null;
+  }
+
+  // DB 쪽 삭제를 한 트랜잭션으로 끝내고 파일 정리는 archive_file_cleanups 큐에 남긴다.
+  // 파일 삭제가 실패해도 큐에 남아 같은 요청의 재시도나 주기 정리에서 다시 처리된다.
+  deleteArchive(id: string, measuredBytes?: number): boolean {
+    return this.transaction(() => {
+      const row = this.database.prepare("SELECT status,stored_bytes FROM archives WHERE id=?").get(id) as Row | undefined;
+      if (!row) return false;
+      const bytes = row.status === "saved" ? Number(row.stored_bytes ?? measuredBytes ?? 0) : 0;
+      this.database.prepare("DELETE FROM archive_search WHERE archive_id=?").run(id);
+      this.database.prepare("DELETE FROM archives WHERE id=?").run(id);
+      this.pruneTags();
+      if (bytes > 0) this.database.prepare("UPDATE storage_budget SET used_bytes=MAX(0,used_bytes-?) WHERE singleton=1").run(bytes);
+      this.database.prepare("INSERT OR IGNORE INTO archive_file_cleanups VALUES(?,?)").run(id, new Date().toISOString());
+      return true;
+    });
+  }
+  hasPendingFileCleanup(id: string) { return Boolean(this.database.prepare("SELECT archive_id FROM archive_file_cleanups WHERE archive_id=?").get(id)); }
+  listPendingFileCleanups(): string[] { return Array.from((this.database.prepare("SELECT archive_id FROM archive_file_cleanups ORDER BY requested_at") as any).all() as Iterable<Row>, r => String(r.archive_id)); }
+  completeFileCleanup(id: string) { this.database.prepare("DELETE FROM archive_file_cleanups WHERE archive_id=?").run(id); }
+  usedBytes() { return Number((this.database.prepare("SELECT used_bytes FROM storage_budget WHERE singleton=1").get() as Row).used_bytes); }
   upsertUser(i: { id: string; email: string | null; name: string | null; avatarUrl: string | null; membershipRole: string | null; membershipStatus: string | null }): User { const now = new Date().toISOString(); this.database.prepare(`INSERT INTO users VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,name=excluded.name,avatar_url=excluded.avatar_url,status=excluded.status,membership_role=excluded.membership_role,membership_status=excluded.membership_status,updated_at=excluded.updated_at`).run(i.id, i.email, i.name, i.avatarUrl, i.membershipStatus === "active" ? "active" : "disabled", i.membershipRole, i.membershipStatus, now, now); return this.findUser(i.id)!; }
   findUser(id: string): User | null { const r = this.database.prepare("SELECT * FROM users WHERE id=?").get(id) as Row | undefined; return r ? { id: String(r.id), email: str(r.email), name: str(r.name), avatarUrl: str(r.avatar_url), status: String(r.status) as User["status"], membershipRole: str(r.membership_role), membershipStatus: str(r.membership_status), createdAt: String(r.created_at), updatedAt: String(r.updated_at) } : null; }
   createFolder(ownerId: string, name: string): Folder { const clean = name.trim(); const user = this.findUser(ownerId); if (!clean || clean.length > 100 || !user || user.status !== "active") throw new Error("Invalid folder"); const now = new Date().toISOString(), id = randomUUID(); this.database.prepare("INSERT INTO folders VALUES(?,?,?,?,?)").run(id, ownerId, clean, now, now); return { id, ownerId, name: clean, createdAt: now, updatedAt: now }; }
@@ -87,8 +125,8 @@ export class SqliteArchiveRepository implements ArchiveRepository {
   findPublicById(id: string) { const r = this.database.prepare("SELECT * FROM archives WHERE id=? AND visibility='public' AND status='saved'").get(id) as Row | undefined; return r ? archive(r, this.tags(id)) : null; }
   listOwned(ownerId: string, folderId?: string | null) { const rows = (this.database.prepare(`SELECT * FROM archives WHERE owner_id=? ${folderId === undefined ? "" : "AND folder_id IS ?"} ORDER BY created_at DESC,id DESC`) as any).all(...(folderId === undefined ? [ownerId] : [ownerId, folderId])) as Iterable<Row>; return Array.from(rows, r => archive(r, this.tags(String(r.id)))); }
 
-  private saveArchive(id: string, s: Snapshot, indexText: string, tags: Tag[]) {
-    const result = this.database.prepare("UPDATE archives SET status='saved',title=?,description=?,captured_at=?,final_url=?,byte_length=?,failure_code=NULL,failure_message=NULL WHERE id=? AND status='pending'").run(s.title, s.description, s.capturedAt, s.finalUrl, s.byteLength, id);
+  private saveArchive(id: string, s: Snapshot, indexText: string, tags: Tag[], storedBytes: number | null = null) {
+    const result = this.database.prepare("UPDATE archives SET status='saved',title=?,description=?,captured_at=?,final_url=?,byte_length=?,stored_bytes=?,failure_code=NULL,failure_message=NULL WHERE id=? AND status='pending'").run(s.title, s.description, s.capturedAt, s.finalUrl, s.byteLength, storedBytes, id);
     if (Number(result.changes) !== 1) return false;
     this.addTags(id, tags);
     this.database.prepare("DELETE FROM archive_search WHERE archive_id=?").run(id);
@@ -114,7 +152,7 @@ export class SqliteArchiveRepository implements ArchiveRepository {
 
   reserveBudget(i: { windowMs: number; maxSubmissions: number; maxStoredBytes: number; reserveBytes: number; timeoutMs: number }) {
     this.database.exec("BEGIN IMMEDIATE");
-    try { const now = Date.now(), id = randomUUID(), expires = now + i.timeoutMs + 30000; this.database.prepare("DELETE FROM capture_events WHERE created_at<?").run(now - i.windowMs); this.database.prepare("DELETE FROM budget_reservations WHERE expires_at<=?").run(now); const count = Number((this.database.prepare("SELECT COUNT(*) value FROM capture_events").get() as Row).value), used = Number((this.database.prepare("SELECT used_bytes FROM storage_budget WHERE singleton=1").get() as Row).used_bytes), reserved = Number((this.database.prepare("SELECT COALESCE(SUM(bytes),0) value FROM budget_reservations").get() as Row).value); if (count >= i.maxSubmissions || used + reserved + i.reserveBytes > i.maxStoredBytes) { this.database.exec("ROLLBACK"); return null; } this.database.prepare("INSERT INTO capture_events(created_at) VALUES(?)").run(now); this.database.prepare("INSERT INTO budget_reservations VALUES(?,?,?,?)").run(id, i.reserveBytes, now, expires); this.database.exec("COMMIT"); let done = false; return { release: () => { if (!done) { this.database.prepare("DELETE FROM budget_reservations WHERE id=?").run(id); done = true; } }, finalizeSaved: (s: { archiveId: string; snapshot: Snapshot; indexText: string; tags: Tag[]; byteLength: number }) => { if (done) return null; this.database.exec("BEGIN IMMEDIATE"); try { const reservation = this.database.prepare("SELECT id FROM budget_reservations WHERE id=?").get(id); if (!reservation) { this.database.exec("ROLLBACK"); done = true; return null; } const a = this.database.prepare("SELECT status FROM archives WHERE id=?").get(s.archiveId) as Row | undefined; if (!a || a.status !== "pending") throw new Error("Archive is not pending"); const updated = this.database.prepare("UPDATE storage_budget SET used_bytes=used_bytes+? WHERE singleton=1 AND used_bytes+?<=?").run(s.byteLength, s.byteLength, i.maxStoredBytes); if (Number(updated.changes) !== 1) { this.database.prepare("DELETE FROM budget_reservations WHERE id=?").run(id); this.database.exec("COMMIT"); done = true; return null; } if (!this.saveArchive(s.archiveId, s.snapshot, s.indexText, s.tags)) throw new Error("Archive is not pending"); this.database.prepare("DELETE FROM budget_reservations WHERE id=?").run(id); this.database.exec("COMMIT"); done = true; return this.findById(s.archiveId); } catch (error) { this.database.exec("ROLLBACK"); throw error; } } }; } catch (error) { this.database.exec("ROLLBACK"); throw error; }
+    try { const now = Date.now(), id = randomUUID(), expires = now + i.timeoutMs + 30000; this.database.prepare("DELETE FROM capture_events WHERE created_at<?").run(now - i.windowMs); this.database.prepare("DELETE FROM budget_reservations WHERE expires_at<=?").run(now); const count = Number((this.database.prepare("SELECT COUNT(*) value FROM capture_events").get() as Row).value), used = Number((this.database.prepare("SELECT used_bytes FROM storage_budget WHERE singleton=1").get() as Row).used_bytes), reserved = Number((this.database.prepare("SELECT COALESCE(SUM(bytes),0) value FROM budget_reservations").get() as Row).value); if (count >= i.maxSubmissions || used + reserved + i.reserveBytes > i.maxStoredBytes) { this.database.exec("ROLLBACK"); return null; } this.database.prepare("INSERT INTO capture_events(created_at) VALUES(?)").run(now); this.database.prepare("INSERT INTO budget_reservations VALUES(?,?,?,?)").run(id, i.reserveBytes, now, expires); this.database.exec("COMMIT"); let done = false; return { release: () => { if (!done) { this.database.prepare("DELETE FROM budget_reservations WHERE id=?").run(id); done = true; } }, finalizeSaved: (s: { archiveId: string; snapshot: Snapshot; indexText: string; tags: Tag[]; byteLength: number }) => { if (done) return null; this.database.exec("BEGIN IMMEDIATE"); try { const reservation = this.database.prepare("SELECT id FROM budget_reservations WHERE id=?").get(id); if (!reservation) { this.database.exec("ROLLBACK"); done = true; return null; } const a = this.database.prepare("SELECT status FROM archives WHERE id=?").get(s.archiveId) as Row | undefined; if (!a || a.status !== "pending") throw new Error("Archive is not pending"); const updated = this.database.prepare("UPDATE storage_budget SET used_bytes=used_bytes+? WHERE singleton=1 AND used_bytes+?<=?").run(s.byteLength, s.byteLength, i.maxStoredBytes); if (Number(updated.changes) !== 1) { this.database.prepare("DELETE FROM budget_reservations WHERE id=?").run(id); this.database.exec("COMMIT"); done = true; return null; } if (!this.saveArchive(s.archiveId, s.snapshot, s.indexText, s.tags, s.byteLength)) throw new Error("Archive is not pending"); this.database.prepare("DELETE FROM budget_reservations WHERE id=?").run(id); this.database.exec("COMMIT"); done = true; return this.findById(s.archiveId); } catch (error) { this.database.exec("ROLLBACK"); throw error; } } }; } catch (error) { this.database.exec("ROLLBACK"); throw error; }
   }
   close() { this.database.close(); }
 }

@@ -3,8 +3,10 @@ import { connection } from "next/server";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { verifySession } from "@/lib/auth";
+import { isArchiveAdmin } from "@/lib/admin";
 import { ArchiveViewer } from "./archive-viewer";
 import { ArchiveStatusAction } from "./archive-status-action";
+import { ArchiveAdminPanel } from "./archive-admin-panel";
 import { getArchiveService } from "@/lib/archive/service";
 import { SnapshotContentNotFoundError, type ArchiveStatus } from "@/lib/archive/types";
 import { captureFailurePresentation } from "@/app/archive-form-state";
@@ -47,6 +49,7 @@ async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
     ? (service.findOwnedById(ownerId, id) ?? service.findPublicById(id))
     : service.findPublicById(id);
   if (!archive) notFound();
+  const admin = await isArchiveAdmin();
 
   const contentOwnerId = archive.visibility === "private" ? ownerId : undefined;
   const status = statusPresentation[archive.status];
@@ -141,6 +144,7 @@ async function ArchiveContent({ params }: { params: Promise<{ id: string }> }) {
               </div>
             </div>
           ) : null}
+          {admin ? <ArchiveAdminPanel archiveId={archive.id} tags={archive.tags.map((tag) => tag.name).join(", ")} /> : null}
         </aside>
       </div>
     </div>
