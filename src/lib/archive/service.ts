@@ -12,6 +12,7 @@ import {
   CAPTURE_FAILURE_MESSAGES,
   type Archive,
   type ArchiveCreationResult,
+  type ArchiveDeletionOutcome,
   type ArchiveRetryResult,
   type ArchiveRepository,
   type AssetFetcher,
@@ -151,6 +152,34 @@ export class ArchiveService {
   // ponytail: storage_budget.used_bytes 는 되돌리지 않는다(아카이브별 저장 바이트를 따로 기록하지 않음). 한도가 문제되면 디스크 기준 재계산을 추가.
   async deleteUser(id: string) { for (const archive of this.repository.listOwned(id)) await this.store.cleanup(archive.id); this.repository.deleteUser(id); }
   setVisibility(ownerId: string, id: string, visibility: "private" | "public") { return this.repository.setVisibility(ownerId, id, visibility); }
+
+  // 관리자 작업: 권한 확인은 호출하는 서버 액션이 맡는다(src/lib/admin.ts).
+  updateTags(id: string, tagsInput: string): Archive | null { return this.repository.replaceTags(id, parseTags(tagsInput)); }
+
+  async deleteArchive(id: string): Promise<ArchiveDeletionOutcome> {
+    const archive = this.repository.findById(id);
+    const measured = archive?.status === "saved" && archive.storedBytes == null ? await this.store.measure(id) : undefined;
+    const deleted = this.repository.deleteArchive(id, measured);
+    if (!deleted && !this.repository.hasPendingFileCleanup(id)) return "not_found";
+    return await this.cleanupFiles(id) ? "deleted" : "files_pending";
+  }
+
+  async retryPendingFileCleanups(): Promise<number> {
+    let remaining = 0;
+    for (const id of this.repository.listPendingFileCleanups()) if (!await this.cleanupFiles(id)) remaining += 1;
+    return remaining;
+  }
+
+  private async cleanupFiles(id: string): Promise<boolean> {
+    try {
+      await this.store.cleanup(id);
+    } catch (error) {
+      console.error(`archive file cleanup failed for ${id}:`, error instanceof Error ? error.message : "unknown error");
+      return false;
+    }
+    this.repository.completeFileCleanup(id);
+    return true;
+  }
   listOwned(ownerId: string, folderId?: string | null): Archive[] { return this.repository.listOwned(ownerId, folderId); }
   findOwnedById(ownerId: string, id: string): Archive | null { return this.repository.findOwnedById(ownerId, id); }
   findPublicById(id: string): Archive | null { return this.repository.findPublicById(id); }

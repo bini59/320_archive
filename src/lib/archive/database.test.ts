@@ -55,3 +55,22 @@ describe("SqliteArchiveRepository public library",()=>{
   });
   it("treats malformed tag filters as an empty safe filter boundary",async()=>{const {repo}=await fixture();const row=repo.createOrGet({originalUrl:"https://example.com/a",normalizedUrl:"https://example.com/a",tags:[{name:"News",slug:"news"}]}).archive;repo.markSaved(row.id,snapshot("Saved"));expect(repo.listPublic({tag:"NEWS"}).total).toBe(1);expect(repo.listPublic({tag:"news' OR 1=1 --"}).total).toBe(1);});
 });
+describe("SqliteArchiveRepository schema upgrade", () => {
+  it("adds stored_bytes to a v5 database without losing rows", async () => {
+    const { root, repo } = await fixture();
+    const row = repo.createOrGet({ originalUrl: "https://example.com/old", normalizedUrl: "https://example.com/old" }).archive;
+    repo.markSaved(row.id, snapshot("Old"), "old body");
+    repos.splice(repos.indexOf(repo), 1)[0].close();
+    const { DatabaseSync } = await import("node:sqlite");
+    const raw = new DatabaseSync(path.join(root, "db.sqlite"));
+    raw.exec("ALTER TABLE archives DROP COLUMN stored_bytes; DROP TABLE archive_file_cleanups; PRAGMA user_version=5;");
+    raw.close();
+
+    const upgraded = new SqliteArchiveRepository(path.join(root, "db.sqlite"));
+    repos.push(upgraded);
+    expect(upgraded.findById(row.id)).toMatchObject({ status: "saved", storedBytes: null });
+    expect(upgraded.listPublic({ q: "old" }).total).toBe(1);
+    expect(upgraded.deleteArchive(row.id)).toBe(true);
+    expect(upgraded.listPendingFileCleanups()).toEqual([row.id]);
+  });
+});

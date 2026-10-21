@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   requireAuthenticatedSession: vi.fn(),
   retry: vi.fn(),
+  isArchiveAdmin: vi.fn(),
+  updateTags: vi.fn(),
+  deleteArchive: vi.fn(),
+  redirect: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -14,12 +18,15 @@ vi.mock("@/lib/auth", () => ({
   revokeSession: vi.fn(),
 }));
 vi.mock("@/lib/archive/service", () => ({
-  getArchiveService: () => ({ retry: mocks.retry }),
+  getArchiveService: () => ({ retry: mocks.retry, updateTags: mocks.updateTags, deleteArchive: mocks.deleteArchive }),
 }));
-vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("@/lib/admin", () => ({ isArchiveAdmin: mocks.isArchiveAdmin, startAdminSession: vi.fn(), endAdminSession: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn(), updateTag: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
-import { retryArchiveAction } from "./actions";
+import { deleteArchiveAction, retryArchiveAction, updateArchiveTagsAction } from "./actions";
+import { TagValidationError } from "@/lib/archive/tags";
+import { initialArchiveAdminState } from "./archive-admin-state";
 
 const state = { error: null };
 
@@ -42,5 +49,41 @@ describe("retryArchiveAction", () => {
 
     await expect(retryArchiveAction(state, data)).resolves.toEqual({ error: "아카이브를 찾을 수 없습니다." });
     expect(mocks.retry).toHaveBeenCalledWith("other-user", "private-archive");
+  });
+});
+describe("archive admin actions", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const form = (entries: Record<string, string>) => { const data = new FormData(); for (const [key, value] of Object.entries(entries)) data.set(key, value); return data; };
+
+  it("rejects tag edits and deletions without admin rights", async () => {
+    mocks.isArchiveAdmin.mockResolvedValue(false);
+    await expect(updateArchiveTagsAction(initialArchiveAdminState, form({ archiveId: id, tags: "a" }))).resolves.toMatchObject({ kind: "forbidden" });
+    await expect(deleteArchiveAction(initialArchiveAdminState, form({ archiveId: id, confirm: "delete" }))).resolves.toMatchObject({ kind: "forbidden" });
+    expect(mocks.updateTags).not.toHaveBeenCalled();
+    expect(mocks.deleteArchive).not.toHaveBeenCalled();
+  });
+
+  it("reports tag validation errors and saves valid tags", async () => {
+    mocks.isArchiveAdmin.mockResolvedValue(true);
+    mocks.updateTags.mockImplementationOnce(() => { throw new TagValidationError("태그는 최대 10개까지 입력할 수 있습니다."); });
+    await expect(updateArchiveTagsAction(initialArchiveAdminState, form({ archiveId: id, tags: "x" }))).resolves.toEqual({ kind: "validation", message: "태그는 최대 10개까지 입력할 수 있습니다." });
+    mocks.updateTags.mockReturnValueOnce({ id, tags: [] });
+    await expect(updateArchiveTagsAction(initialArchiveAdminState, form({ archiveId: id, tags: "news" }))).resolves.toMatchObject({ kind: "success" });
+    expect(mocks.updateTags).toHaveBeenLastCalledWith(id, "news");
+  });
+
+  it("requires explicit confirmation before deleting and reports partial failures", async () => {
+    mocks.isArchiveAdmin.mockResolvedValue(true);
+    mocks.deleteArchive.mockReset();
+    await expect(deleteArchiveAction(initialArchiveAdminState, form({ archiveId: id }))).resolves.toMatchObject({ kind: "validation" });
+    expect(mocks.deleteArchive).not.toHaveBeenCalled();
+
+    mocks.deleteArchive.mockResolvedValueOnce("files_pending");
+    await expect(deleteArchiveAction(initialArchiveAdminState, form({ archiveId: id, confirm: "delete" }))).resolves.toMatchObject({ kind: "partial" });
+    mocks.deleteArchive.mockResolvedValueOnce("not_found");
+    await expect(deleteArchiveAction(initialArchiveAdminState, form({ archiveId: id, confirm: "delete" }))).resolves.toMatchObject({ kind: "not_found" });
+    mocks.deleteArchive.mockResolvedValueOnce("deleted");
+    await deleteArchiveAction(initialArchiveAdminState, form({ archiveId: id, confirm: "delete" }));
+    expect(mocks.redirect).toHaveBeenLastCalledWith("/archives?deleted=1");
   });
 });

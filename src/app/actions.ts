@@ -1,8 +1,9 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { endAdminSession, isArchiveAdmin, startAdminSession } from "@/lib/admin";
 import {
   AuthUnavailableError,
   isE2eAuthBypass,
@@ -23,6 +24,9 @@ import {
   type ArchiveFormState,
 } from "./archive-form-state";
 import { folderErrorForAction, initialFolderFormState, validateFolderName, type FolderFormState } from "./folder-form-state";
+import { ADMIN_MESSAGES, type AdminSignInState, type ArchiveAdminState } from "./archive-admin-state";
+
+const ARCHIVE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function createArchiveAction(
   _previousState: ArchiveFormState,
@@ -171,4 +175,50 @@ export async function logoutAction(): Promise<void> {
   jar.delete({ name: "sid", path: "/" });
 
   redirect(loginUrl(`${await currentAppOrigin()}/`).toString());
+}
+
+export async function adminSignInAction(_previousState: AdminSignInState, formData: FormData): Promise<AdminSignInState> {
+  const result = await startAdminSession(formData.get("secret"));
+  if (result === "ok") redirect("/archives");
+  if (result === "locked") return { error: "인증 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요." };
+  if (result === "unconfigured") return { error: "관리 기능이 설정되지 않았습니다." };
+  return { error: "관리자 비밀키가 올바르지 않습니다." };
+}
+
+export async function adminSignOutAction(): Promise<void> {
+  await endAdminSession();
+  redirect("/admin");
+}
+
+export async function updateArchiveTagsAction(_previousState: ArchiveAdminState, formData: FormData): Promise<ArchiveAdminState> {
+  if (!(await isArchiveAdmin())) return { kind: "forbidden", message: ADMIN_MESSAGES.forbidden };
+  const id = formData.get("archiveId");
+  const tags = formData.get("tags");
+  if (typeof id !== "string" || !ARCHIVE_ID.test(id) || typeof tags !== "string") {
+    return { kind: "validation", message: ADMIN_MESSAGES.invalidRequest };
+  }
+  let updated;
+  try {
+    updated = getArchiveService().updateTags(id, tags);
+  } catch (error) {
+    if (error instanceof TagValidationError) return { kind: "validation", message: error.message };
+    throw error;
+  }
+  if (!updated) return { kind: "not_found", message: ADMIN_MESSAGES.notFound };
+  updateTag("public-archives");
+  revalidatePath(`/archives/${id}`);
+  return { kind: "success", message: ADMIN_MESSAGES.tagsSaved };
+}
+
+export async function deleteArchiveAction(_previousState: ArchiveAdminState, formData: FormData): Promise<ArchiveAdminState> {
+  if (!(await isArchiveAdmin())) return { kind: "forbidden", message: ADMIN_MESSAGES.forbidden };
+  const id = formData.get("archiveId");
+  if (typeof id !== "string" || !ARCHIVE_ID.test(id)) return { kind: "validation", message: ADMIN_MESSAGES.invalidRequest };
+  if (formData.get("confirm") !== "delete") return { kind: "validation", message: ADMIN_MESSAGES.confirmRequired };
+
+  const outcome = await getArchiveService().deleteArchive(id);
+  updateTag("public-archives");
+  if (outcome === "not_found") return { kind: "not_found", message: ADMIN_MESSAGES.notFound };
+  if (outcome === "files_pending") return { kind: "partial", message: ADMIN_MESSAGES.filesPending };
+  redirect("/archives?deleted=1");
 }

@@ -20,6 +20,7 @@ services:
       CLIENT_ID: ${CLIENT_ID:-archive}
       APP_SECRET: ${APP_SECRET:-}
       APP_ORIGIN: ${APP_ORIGIN:-https://archive.bini59.dev}
+      ARCHIVE_ADMIN_SECRET: ${ARCHIVE_ADMIN_SECRET:-}
     expose:
       - "3000"
     restart: unless-stopped
