@@ -9,6 +9,7 @@ export function CommandPalette() {
   const router = useRouter();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLFormElement>(null);
+  const wasOpenRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -34,7 +35,8 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (open) dialogRef.current?.querySelector<HTMLElement>("input")?.focus();
-    else triggerRef.current?.focus();
+    else if (wasOpenRef.current) triggerRef.current?.focus();
+    wasOpenRef.current = open;
   }, [open]);
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
