@@ -89,7 +89,7 @@ APP_ORIGIN=https://archive.bini59.dev
 pnpm setup:auth
 ```
 
-기본 등록 origin은 `https://archive.bini59.dev`이며, 다른 환경에서는 `ARCHIVE_ORIGIN`, `AUTH_ROOT`, `AUTH_COMPOSE_FILE`, `PRODUCTION_ENV_FILE`로 변경할 수 있습니다. CI production 배포는 `/home/ubuntu/actions-runner-320/.env`를 Compose env 파일로 사용합니다. 로컬 E2E 테스트만 `ARCHIVE_E2E=1`로 인증을 격리해 우회합니다.
+기본 등록 origin은 `https://archive.bini59.dev`이며, 다른 환경에서는 `ARCHIVE_ORIGIN`, `AUTH_ROOT`, `AUTH_COMPOSE_FILE`, `PRODUCTION_ENV_FILE`로 변경할 수 있습니다. production env는 k3s Secret `archive/env`에 있습니다. 로컬 E2E 테스트만 `ARCHIVE_E2E=1`로 인증을 격리해 우회합니다.
 
 ## Deployment
 
@@ -180,27 +180,11 @@ Cloudflare Tunnel 컨테이너, 공개 도메인의 ingress, TLS 및 엣지 rate
 
 변경된 코드가 포함된 PR은 GitHub-hosted ARM64 runner에서 lint, typecheck, 단위·통합 테스트,
 Playwright E2E, production build, Docker build와 final-image Chromium launch smoke를 실행합니다. Markdown 및 `docs/`만 변경된 PR은 검증 workflow를 건너뜁니다. 변경된 코드가 포함된 `main` commit은
-`ghcr.io/bini59/320_archive:sha-<full-commit-sha>` immutable tag와 편의용 `latest` tag로
-게시됩니다. 배포에는 SHA tag만 사용합니다.
+`ghcr.io/bini59/320_archive:sha-<full-commit-sha>-<unix time>` immutable tag와 편의용 `latest` tag로
+게시됩니다.
 
-운영 ARM64 호스트에는 이 저장소 전용 GitHub Actions runner를 등록하고
-`self-hosted`, `Linux`, `ARM64`, `archive-prod` label을 부여합니다. runner 사용자가 Docker
-daemon, 저장소 checkout 및 `backups/`에 접근할 수 있어야 하며 다른 저장소에는 이 runner를
-공유하지 않는 것을 권장합니다. production environment 보호 규칙과 승인자는 GitHub에서
-별도로 설정할 수 있습니다.
-
-CD는 production concurrency group으로 직렬 실행합니다. `scripts/deploy.sh`는 현재 이미지
-tag를 기록하고 앱을 중지한 뒤 `320_archive_data` 전체를
-`backups/320-archive-data-<UTC timestamp>.tar.gz`로 백업합니다. 이후 지정된 SHA 이미지를
-기동해 Docker healthcheck가 healthy가 될 때까지 기다리고, pull/start/readiness 실패 시 이전
-이미지로 되돌립니다. 백업 실패 시에도 기존 앱을 다시 시작합니다. runner에서 수동 검증할 때는:
-기본적으로 최신 백업 10개를 보존하며 `BACKUP_RETENTION_COUNT`로 개수를 조정할 수 있습니다.
-
-```bash
-scripts/deploy.sh ghcr.io/bini59/320_archive:sha-<40-character-commit-sha>
-docker compose ps
-docker run --rm --network api-net curlimages/curl:8.14.1 -fsS http://archive-320:3000/health/ready
-```
-
-배포 전 `api-net`과 기존 cloudflared 연결을 확인하고, 배포 후 위 내부 readiness와 실제 Public
-Hostname을 모두 확인합니다. 실패한 run에는 rollback 결과가 stderr와 Actions log에 남습니다.
+운영 배포는 Oracle 서버 k3s의 `archive` namespace(Deployment `archive`, PVC `data`를 `/data`에 마운트)이며
+GitOps 저장소 bini59/homelab(`apps/archive`)의 Flux가 관리합니다. Flux ImagePolicy가 가장 최근 SHA tag를 골라
+homelab에 커밋하고 롤아웃합니다(보통 2~3분). self-hosted runner와 배포 스크립트는 더 이상 쓰지 않으며,
+배포 전 자동 volume 백업도 하지 않습니다. 공개 hostname은 Cloudflare tunnel `oracle-k3s`에서
+`http://archive.archive.svc.cluster.local:3000`으로 연결됩니다.
